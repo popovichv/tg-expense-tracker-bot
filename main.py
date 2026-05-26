@@ -14,6 +14,7 @@ from database import SessionLocal, engine
 from models.models import Base, Expense, User
 
 from handlers.category import add_category_handler
+from handlers.expense import add_expense_handler
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
@@ -65,4 +66,5 @@ if __name__ == "__main__":
     start_handler = CommandHandler("start", start)
     application.add_handler(start_handler)
     application.add_handler(add_category_handler)
+    application.add_handler(add_expense_handler)
     application.run_polling()
