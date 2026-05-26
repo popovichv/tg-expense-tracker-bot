@@ -1,10 +1,6 @@
-from dotenv import load_dotenv
-
-load_dotenv()
-
 import logging
-import os
 
+from config import BOT_TOKEN
 from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
@@ -14,8 +10,10 @@ from telegram.ext import (
     filters,
 )
 
-from db.engine import SessionLocal, engine
-from db.models import Base, Expense, User
+from database import SessionLocal, engine
+from models.models import Base, Expense, User
+
+from handlers.category import add_category_handler
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
@@ -60,22 +58,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.effective_chat.id
-    message = update.effective_message.text.split(" ")
-
-    add_expense(chat_id, float(message[0]), message[1], message[2])
-
-    await context.bot.send_message(chat_id=chat_id, text="expense recorded")
-
-
 if __name__ == "__main__":
     Base.metadata.create_all(engine)
-    application = ApplicationBuilder().token(os.getenv("TG_TOKEN")).build()
+    application = ApplicationBuilder().token(BOT_TOKEN).build()
 
-    echo_handler = MessageHandler(filters.TEXT & (~filters.COMMAND), echo)
     start_handler = CommandHandler("start", start)
     application.add_handler(start_handler)
-    application.add_handler(echo_handler)
-
+    application.add_handler(add_category_handler)
     application.run_polling()
