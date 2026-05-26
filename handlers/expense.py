@@ -28,10 +28,9 @@ CHOOSING_DATE = 5
 
 def build_category_keyboard(categories, include_cancel=True):
     buttons = [
-        InlineKeyboardButton(cat.name, callback_data=f"exp_cat_{cat.id}")
-        for cat in categories
+        InlineKeyboardButton(cat.name, callback_data=f"exp_cat_{cat.id}") for cat in categories
     ]
-    keyboard = [buttons[i:i + 2] for i in range(0, len(buttons), 2)]
+    keyboard = [buttons[i : i + 2] for i in range(0, len(buttons), 2)]
     if include_cancel:
         keyboard.append([InlineKeyboardButton("Cancel", callback_data=CANCEL)])
     return keyboard
@@ -87,8 +86,12 @@ async def subcategory_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 async def amount_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip().replace(",", ".")
+    amounts = [a.strip() for a in text.split("+")]
     try:
-        amount = float(text)
+        for i in range(len(amounts)):
+            amounts[i] = float(amounts[i])
+
+        amount = sum(amounts)
         if amount <= 0:
             raise ValueError
     except ValueError:

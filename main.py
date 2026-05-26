@@ -28,25 +28,6 @@ def register_user(chat_id: int, name: str):
         session.commit()
 
 
-def add_expense(
-    chat_id: int,
-    amount: float,
-    category: str,
-    description: str | None = None,
-    currency: str = "CAD",
-):
-    with SessionLocal() as session:
-        expense = Expense(
-            chat_id=chat_id,
-            amount=amount,
-            category=category,
-            description=description,
-            currency=currency,
-        )
-        session.add(expense)
-        session.commit()
-
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     name = update.effective_user.first_name
