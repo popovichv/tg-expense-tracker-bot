@@ -33,20 +33,6 @@ def get_subcategories(parent_id: int, chat_id: int) -> list[Category]:
         return list(result.scalars().all())
 
 
-def get_all_categories(chat_id: int) -> list[Category]:
-    with SessionLocal() as session:
-        result = session.execute(
-            select(Category).where(
-                or_(
-                    Category.chat_id == chat_id,
-                    Category.chat_id == None,
-                )
-            )
-        )
-        categories = list(result.scalars().all())
-    categories.sort(key=lambda c: (c.parent_id is not None, c.parent_id or 0, c.name))
-    return categories
-
 
 def add_category(name: str, chat_id: int | None = None, parent_id: int | None = None) -> Category:
     with SessionLocal() as session:

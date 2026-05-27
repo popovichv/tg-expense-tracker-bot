@@ -46,6 +46,8 @@ async def add_expense(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return ConversationHandler.END
 
+    context.user_data["category_names"] = {cat.id: cat.name for cat in categories}
+
     keyboard = build_category_keyboard(categories)
     await update.message.reply_text(
         "Choose a category:",
@@ -62,6 +64,8 @@ async def top_category_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE
     subcategories = get_subcategories(category_id, chat_id)
 
     if subcategories:
+        context.user_data["category_names"].update({cat.id: cat.name for cat in subcategories})
+
         keyboard = build_category_keyboard(subcategories)
         await update.callback_query.edit_message_text(
             "Choose a subcategory:",
@@ -70,6 +74,7 @@ async def top_category_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE
         return CHOOSING_SUBCATEGORY
 
     context.user_data["category_id"] = category_id
+    context.user_data["category_name"] = context.user_data["category_names"][category_id]
 
     await update.callback_query.edit_message_text("Enter the amount:")
     return TYPING_AMOUNT
@@ -78,7 +83,9 @@ async def top_category_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE
 async def subcategory_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
 
-    context.user_data["category_id"] = int(update.callback_query.data.split("_")[2])
+    category_id = int(update.callback_query.data.split("_")[2])
+    context.user_data["category_id"] = category_id
+    context.user_data["category_name"] = context.user_data["category_names"][category_id]
 
     await update.callback_query.edit_message_text("Enter the amount:")
     return TYPING_AMOUNT
@@ -150,7 +157,13 @@ async def date_set_today(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     await update.callback_query.edit_message_text(
-        f"Expense saved!\nAmount: {data['amount']:.2f}\nDate: {spent_at}"
+        f"<b>Expense Recorded</b>\n"
+        f"----------------------------\n"
+        f"<b>Category:</b> {data.get('category_name')}\n"
+        f"<b>Description:</b> {data.get('description', 'N/A')}\n"
+        f"<b>Amount:</b> ${data['amount']:.2f}\n"
+        f"<b>Date:</b> {spent_at}",
+        parse_mode="HTML",
     )
     context.user_data.clear()
     return ConversationHandler.END
@@ -175,7 +188,13 @@ async def date_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     await update.message.reply_text(
-        f"Expense saved!\nAmount: {data['amount']:.2f}\nDate: {spent_at}"
+        f"<b>Expense Recorded</b>\n"
+        f"----------------------------\n"
+        f"<b>Category:</b> {data.get('category_name')}\n"
+        f"<b>Description:</b> {data.get('description', 'N/A')}\n"
+        f"<b>Amount:</b> ${data['amount']:.2f}\n"
+        f"<b>Date:</b> {spent_at}",
+        parse_mode="HTML",
     )
     context.user_data.clear()
     return ConversationHandler.END
