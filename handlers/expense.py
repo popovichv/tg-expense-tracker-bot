@@ -17,6 +17,7 @@ from repo.expense import add_expense as add_expense_to_db
 CANCEL = "exp_cancel"
 SKIP_DESC = "exp_skip_desc"
 TODAY = "exp_today"
+USE_PARENT = "exp_use_parent"
 
 # States
 CHOOSING_CATEGORY = 1
@@ -65,14 +66,29 @@ async def top_category_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     if subcategories:
         context.user_data["category_names"].update({cat.id: cat.name for cat in subcategories})
+        context.user_data["parent_category_id"] = category_id
 
-        keyboard = build_category_keyboard(subcategories)
+        keyboard = build_category_keyboard(subcategories, include_cancel=False)
+        parent_name = context.user_data["category_names"][category_id]
+        keyboard.append([InlineKeyboardButton(f"Use '{parent_name}' directly", callback_data=USE_PARENT)])
+        keyboard.append([InlineKeyboardButton("Cancel", callback_data=CANCEL)])
         await update.callback_query.edit_message_text(
             "Choose a subcategory:",
             reply_markup=InlineKeyboardMarkup(keyboard),
         )
         return CHOOSING_SUBCATEGORY
 
+    context.user_data["category_id"] = category_id
+    context.user_data["category_name"] = context.user_data["category_names"][category_id]
+
+    await update.callback_query.edit_message_text("Enter the amount:")
+    return TYPING_AMOUNT
+
+
+async def parent_category_used(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.callback_query.answer()
+
+    category_id = context.user_data["parent_category_id"]
     context.user_data["category_id"] = category_id
     context.user_data["category_name"] = context.user_data["category_names"][category_id]
 
@@ -217,6 +233,7 @@ add_expense_handler = ConversationHandler(
         ],
         CHOOSING_SUBCATEGORY: [
             CallbackQueryHandler(subcategory_chosen, pattern=r"^exp_cat_\d+$"),
+            CallbackQueryHandler(parent_category_used, pattern=f"^{USE_PARENT}$"),
             CallbackQueryHandler(cancel, pattern=f"^{CANCEL}$"),
         ],
         TYPING_AMOUNT: [

@@ -55,9 +55,8 @@ async def chosen_sub_category(update: Update, context: ContextTypes.DEFAULT_TYPE
         )
         return ConversationHandler.END
 
-    keyboard = [
-        [InlineKeyboardButton(cat.name, callback_data=str(cat.id))] for cat in user_categories
-    ]
+    buttons = [InlineKeyboardButton(cat.name, callback_data=str(cat.id)) for cat in user_categories]
+    keyboard = [buttons[i : i + 2] for i in range(0, len(buttons), 2)]
     keyboard.append([InlineKeyboardButton("Cancel", callback_data=CANCEL)])
 
     await update.callback_query.edit_message_text(
