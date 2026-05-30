@@ -6,7 +6,7 @@ engine = create_engine(
     f"@{DB_SERVER}/{DB_NAME}"
     "?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes",
     pool_pre_ping=True,
-    pool_recycle=1800,
+    pool_recycle=200,
 )
 
 SessionLocal = sessionmaker(bind=engine)
