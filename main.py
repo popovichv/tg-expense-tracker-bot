@@ -6,12 +6,11 @@ from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
     ContextTypes,
-    MessageHandler,
-    filters,
 )
 
+from sqlalchemy import text
 from database import SessionLocal, engine
-from models.models import Base, Expense, User
+from models.models import Base, User
 
 from handlers.category import add_category_handler
 from handlers.expense import add_expense_handler
@@ -20,6 +19,16 @@ from handlers.list_categories import list_categories_handler
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
+
+logger = logging.getLogger(__name__)
+
+
+async def keep_alive_db(context: ContextTypes.DEFAULT_TYPE):
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+    except Exception as e:
+        logger.warning("DB keep-alive ping failed: %s", e)
 
 
 def register_user(chat_id: int, name: str):
@@ -50,4 +59,5 @@ if __name__ == "__main__":
     application.add_handler(add_category_handler)
     application.add_handler(add_expense_handler)
     application.add_handler(list_categories_handler)
+    application.job_queue.run_repeating(keep_alive_db, interval=180, first=10)
     application.run_polling()
