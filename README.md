@@ -29,7 +29,7 @@ Amounts support addition expressions (e.g. `12.50 + 3`). Categories support one 
 | `DB_USER`     | Database user             |
 | `DB_PASSWORD` | Database password         |
 
-Create a `.env` file locally or set these in your Railway project settings.
+Create a `.env` file locally or set these in your deploynment platform project settings.
 
 ### Run locally
 
