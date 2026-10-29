@@ -1,6 +1,10 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from handlers.prompts import clear_prompts, track_prompt
-from repo.category import get_top_level_categories, add_category as add_category_to_db
+from repo.category import (
+    add_category as add_category_to_db,
+    find_duplicate,
+    get_top_level_categories,
+)
 from telegram.ext import (
     CallbackQueryHandler,
     CommandHandler,
@@ -91,6 +95,24 @@ async def received_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     name = update.message.text.strip()
     parent_id = context.user_data.get("parent_id")
     chat_id = update.effective_chat.id
+
+    if not name:
+        prompt = await update.message.reply_text(
+            "A category needs a name. Send one:",
+            reply_markup=CANCEL_MARKUP,
+        )
+        track_prompt(context, prompt)
+        return TYPING_NAME
+
+    existing = find_duplicate(name, chat_id, parent_id)
+    if existing is not None:
+        where = "at the top level" if parent_id is None else "under that category"
+        prompt = await update.message.reply_text(
+            f"'{existing.name}' already exists {where}. Send a different name:",
+            reply_markup=CANCEL_MARKUP,
+        )
+        track_prompt(context, prompt)
+        return TYPING_NAME
 
     add_category_to_db(name=name, chat_id=chat_id, parent_id=parent_id)
 
