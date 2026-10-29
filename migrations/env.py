@@ -11,15 +11,11 @@ from models.models import Base
 # access to the values within the .ini file in use.
 config = context.config
 
-# Interpret the config file for Python logging.
-# This line sets up loggers basically.
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata
 
-# compare_server_default is off by default and would otherwise miss changes to
-# the created_at default; compare_type catches column type changes.
 COMPARE_OPTS = {"compare_type": True, "compare_server_default": True}
 
 
@@ -54,11 +50,6 @@ def run_migrations_online() -> None:
     and associate a connection with the context.
 
     """
-    # The URL comes from config.DATABASE_URL, not from alembic.ini, so the
-    # credentials stay in one place and never get committed. The engine is built
-    # directly rather than through config.set_main_option(), because alembic.ini
-    # is a ConfigParser file where a '%' in the URL -- as in a percent-escaped
-    # password -- would be misread as string interpolation.
     connectable = create_engine(DATABASE_URL, poolclass=pool.NullPool)
 
     with connectable.connect() as connection:

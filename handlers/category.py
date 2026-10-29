@@ -1,4 +1,5 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from handlers.prompts import clear_prompts, track_prompt
 from repo.category import get_top_level_categories, add_category as add_category_to_db
 from telegram.ext import (
     CallbackQueryHandler,
@@ -30,10 +31,11 @@ async def add_category(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [CANCEL_BUTTON],
     ]
 
-    await update.message.reply_text(
+    prompt = await update.message.reply_text(
         "What kind of category do you want to add?",
         reply_markup=InlineKeyboardMarkup(keyboard),
     )
+    track_prompt(context, prompt)
     return CHOOSING_TYPE
 
 
@@ -94,6 +96,8 @@ async def received_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     label = "Category" if parent_id is None else "Subcategory"
     await update.message.reply_text(f"{label} '{name}' added.")
+
+    await clear_prompts(update, context)
     context.user_data.clear()
     return ConversationHandler.END
 

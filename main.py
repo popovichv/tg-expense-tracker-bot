@@ -9,8 +9,7 @@ from telegram.ext import (
     ContextTypes,
 )
 
-from sqlalchemy import text
-from database import SessionLocal, engine
+from database import SessionLocal
 from models.models import User
 
 from handlers.category import add_category_handler
@@ -22,14 +21,6 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
-
-
-async def keep_alive_db(context: ContextTypes.DEFAULT_TYPE):
-    try:
-        with engine.connect() as conn:
-            conn.execute(text("SELECT 1"))
-    except Exception as e:
-        logger.warning("DB keep-alive ping failed: %s", e)
 
 
 def register_user(chat_id: int, name: str):
@@ -65,7 +56,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 if __name__ == "__main__":
-    # The schema is owned by Alembic (`alembic upgrade head`), not by the app.
     application = ApplicationBuilder().token(BOT_TOKEN).build()
 
     start_handler = CommandHandler("start", start)
@@ -75,5 +65,4 @@ if __name__ == "__main__":
     application.add_handler(list_categories_handler)
     application.add_handler(CommandHandler("cancel", stale_cancel))
     application.add_handler(CallbackQueryHandler(stale_cancel, pattern=r"^(cancel|exp_cancel)$"))
-    application.job_queue.run_repeating(keep_alive_db, interval=180, first=10)
     application.run_polling()

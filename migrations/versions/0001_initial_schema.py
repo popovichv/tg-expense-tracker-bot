@@ -20,7 +20,6 @@ depends_on = None
 def upgrade() -> None:
     op.create_table(
         "users",
-        # Supplied by Telegram, not generated here: BigInteger, no sequence.
         sa.Column("chat_id", sa.BigInteger(), autoincrement=False, nullable=False),
         sa.Column("name", sa.String(), nullable=False),
         sa.PrimaryKeyConstraint("chat_id", name=op.f("pk_users")),
@@ -33,11 +32,13 @@ def upgrade() -> None:
         # NULL chat_id marks a category shared with every user.
         sa.Column("chat_id", sa.BigInteger(), nullable=True),
         sa.ForeignKeyConstraint(
-            ["parent_id"], ["categories.id"],
+            ["parent_id"],
+            ["categories.id"],
             name=op.f("fk_categories_parent_id_categories"),
         ),
         sa.ForeignKeyConstraint(
-            ["chat_id"], ["users.chat_id"],
+            ["chat_id"],
+            ["users.chat_id"],
             name=op.f("fk_categories_chat_id_users"),
         ),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_categories")),
@@ -51,14 +52,13 @@ def upgrade() -> None:
         sa.Column("description", sa.String(), nullable=True),
         sa.Column("spent_at", sa.Date(), nullable=False),
         sa.Column("currency", sa.String(), nullable=False),
-        sa.Column(
-            "created_at", sa.DateTime(), server_default=sa.text("now()"), nullable=False
-        ),
+        sa.Column("created_at", sa.DateTime(), server_default=sa.text("now()"), nullable=False),
         sa.ForeignKeyConstraint(
             ["chat_id"], ["users.chat_id"], name=op.f("fk_expenses_chat_id_users")
         ),
         sa.ForeignKeyConstraint(
-            ["category_id"], ["categories.id"],
+            ["category_id"],
+            ["categories.id"],
             name=op.f("fk_expenses_category_id_categories"),
         ),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_expenses")),

@@ -68,10 +68,6 @@ holds no credentials.
 On deploy, run `alembic upgrade head` as the platform's **pre-deploy command**, so the
 schema is in place before the new container starts.
 
-> One-time note: if a database already has these tables from an earlier `create_all` boot,
-> run `alembic stamp head` against it once. That records the baseline revision without
-> re-running the DDL — `alembic upgrade head` would fail on "table already exists".
-
 ## Project structure
 
 ```
