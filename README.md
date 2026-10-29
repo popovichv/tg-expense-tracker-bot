@@ -6,7 +6,7 @@ A Python-based Telegram bot with the PTB library and a SQLAlchemy ORM layer. Bui
 
 - **[python-telegram-bot](https://github.com/python-telegram-bot/python-telegram-bot)** — bot framework with conversation handlers and inline keyboards
 - **SQLAlchemy 2.0** — ORM with mapped column syntax
-- **Azure SQL Server** — relational database backend (via `pyodbc` + ODBC Driver 18)
+- **PostgreSQL** — relational database backend (via `psycopg` 3)
 
 ## Features
 
@@ -22,15 +22,15 @@ Amounts support addition expressions (e.g. `12.50 + 3`). Categories support one 
 
 ### Environment variables
 
-| Variable      | Description               |
-| ------------- | ------------------------- |
-| `TG_TOKEN`    | Telegram bot token        |
-| `DB_SERVER`   | Azure SQL server hostname |
-| `DB_NAME`     | Database name             |
-| `DB_USER`     | Database user             |
-| `DB_PASSWORD` | Database password         |
+| Variable       | Description                  |
+| -------------- | ---------------------------- |
+| `TG_TOKEN`     | Telegram bot token           |
+| `DATABASE_URL` | Full Postgres connection URL |
 
-Create a `.env` file locally or set these in your deploynment platform project settings.
+`DATABASE_URL` is required — the bot stops at startup with a clear error if it is missing.
+Managed Postgres providers generally inject it automatically, so no manual database
+configuration is needed on deploy. Both `postgres://` and `postgresql://` URLs are accepted.
+Create a `.env` file locally or set these in your deployment platform project settings.
 
 ### Run locally
 
