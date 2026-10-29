@@ -4,8 +4,9 @@ A Python-based Telegram bot with the PTB library and a SQLAlchemy ORM layer. Bui
 
 ## Stack
 
+- **Python 3.15**
 - **[python-telegram-bot](https://github.com/python-telegram-bot/python-telegram-bot)** — bot framework with conversation handlers and inline keyboards
-- **SQLAlchemy 2.0** — ORM with mapped column syntax
+- **SQLAlchemy 2.1** — ORM with mapped column syntax
 - **PostgreSQL** — relational database backend (via `psycopg` 3)
 
 ## Features
