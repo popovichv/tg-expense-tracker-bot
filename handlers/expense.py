@@ -1,3 +1,4 @@
+import html
 from datetime import date
 from decimal import Decimal, InvalidOperation
 
@@ -181,6 +182,26 @@ async def description_skipped(update: Update, context: ContextTypes.DEFAULT_TYPE
     return CHOOSING_DATE
 
 
+def format_expense_summary(data, spent_at) -> str:
+    """Build the confirmation message, escaping anything the user typed.
+
+    Category names and descriptions are user supplied, so a name containing
+    `<` would otherwise make Telegram reject the whole message as malformed
+    HTML and the confirmation would never arrive.
+    """
+    category = html.escape(data.get("category_name") or "")
+    description = html.escape(data.get("description") or "N/A")
+
+    return (
+        f"<b>Expense Recorded</b>\n"
+        f"----------------------------\n"
+        f"<b>Category:</b> {category}\n"
+        f"<b>Description:</b> {description}\n"
+        f"<b>Amount:</b> ${data['amount']:.2f}\n"
+        f"<b>Date:</b> {spent_at}"
+    )
+
+
 async def date_set_today(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
 
@@ -196,12 +217,7 @@ async def date_set_today(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     await update.callback_query.edit_message_text(
-        f"<b>Expense Recorded</b>\n"
-        f"----------------------------\n"
-        f"<b>Category:</b> {data.get('category_name')}\n"
-        f"<b>Description:</b> {data.get('description', 'N/A')}\n"
-        f"<b>Amount:</b> ${data['amount']:.2f}\n"
-        f"<b>Date:</b> {spent_at}",
+        format_expense_summary(data, spent_at),
         parse_mode="HTML",
     )
 
@@ -231,12 +247,7 @@ async def date_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     await update.message.reply_text(
-        f"<b>Expense Recorded</b>\n"
-        f"----------------------------\n"
-        f"<b>Category:</b> {data.get('category_name')}\n"
-        f"<b>Description:</b> {data.get('description', 'N/A')}\n"
-        f"<b>Amount:</b> ${data['amount']:.2f}\n"
-        f"<b>Date:</b> {spent_at}",
+        format_expense_summary(data, spent_at),
         parse_mode="HTML",
     )
 

@@ -1,3 +1,5 @@
+import html
+
 from telegram import Update
 from telegram.ext import CommandHandler, ContextTypes
 
@@ -17,10 +19,10 @@ async def list_categories(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lines = ["<b>Categories</b>", "----------------"]
 
     for category in top_level:
-        lines.append(f"<b>{category.name}</b>")
+        lines.append(f"<b>{html.escape(category.name)}</b>")
         subcategories = get_subcategories(category.id, chat_id)
         for sub in subcategories:
-            lines.append(f"- {sub.name}")
+            lines.append(f"- {html.escape(sub.name)}")
         lines.append("")
 
     await update.message.reply_text("\n".join(lines), parse_mode="HTML")
