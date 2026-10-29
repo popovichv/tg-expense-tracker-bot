@@ -130,8 +130,10 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.callback_query:
         await update.callback_query.answer()
         await update.callback_query.edit_message_text(text)
+        await clear_prompts(update, context, keep=update.callback_query.message.message_id)
     else:
         await update.message.reply_text(text)
+        await clear_prompts(update, context)
 
     context.user_data.clear()
     return ConversationHandler.END
