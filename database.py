@@ -1,12 +1,11 @@
-from config import DB_SERVER, DB_NAME, DB_USER, DB_PASSWORD
+from config import DATABASE_URL
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+
 engine = create_engine(
-    f"mssql+pyodbc://{DB_USER}:{DB_PASSWORD}"
-    f"@{DB_SERVER}/{DB_NAME}"
-    "?driver=ODBC+Driver+18+for+SQL+Server&TrustServerCertificate=yes",
+    DATABASE_URL,
     pool_pre_ping=True,
-    pool_recycle=200,
+    pool_recycle=1800,
 )
 
 SessionLocal = sessionmaker(bind=engine)
