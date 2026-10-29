@@ -9,16 +9,19 @@ async def list_categories(update: Update, context: ContextTypes.DEFAULT_TYPE):
     top_level = get_top_level_categories(chat_id)
 
     if not top_level:
-        await update.message.reply_text("You have no categories yet. Use /add_category to create one.")
+        await update.message.reply_text(
+            "You have no categories yet. Use /add_category to create one."
+        )
         return
 
-    lines = ["<b>Categories</b>", "------------"]
+    lines = ["<b>Categories</b>", "----------------"]
 
     for category in top_level:
-        lines.append(f"\n<b>{category.name}</b>")
+        lines.append(f"<b>{category.name}</b>")
         subcategories = get_subcategories(category.id, chat_id)
         for sub in subcategories:
             lines.append(f"- {sub.name}")
+        lines.append("")
 
     await update.message.reply_text("\n".join(lines), parse_mode="HTML")
 
