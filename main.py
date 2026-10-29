@@ -17,8 +17,12 @@ from handlers.expense import add_expense_handler
 from handlers.list_categories import list_categories_handler
 
 logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.WARNING,
 )
+
+for _app_logger in ("__main__", "handlers", "models", "repo", "database"):
+    logging.getLogger(_app_logger).setLevel(logging.INFO)
 
 logger = logging.getLogger(__name__)
 
