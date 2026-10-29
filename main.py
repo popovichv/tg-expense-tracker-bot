@@ -86,7 +86,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     name = update.effective_user.first_name
 
     if context.chat_data.pop("user_created", False):
-        text = f"Hi {name}! You have been saved in the database with chat ID: {chat_id}"
+        text = (
+            f"Hi {name}! You have been saved in the database with chat ID: {chat_id}\n"
+            "I have added some starter categories — see /list_categories."
+        )
     else:
         text = f"Welcome back, {name}! You are already registered."
 

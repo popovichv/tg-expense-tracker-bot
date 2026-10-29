@@ -36,9 +36,7 @@ class Category(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     name: Mapped[str]
     parent_id: Mapped[int | None] = mapped_column(ForeignKey("categories.id"), nullable=True)
-    chat_id: Mapped[int | None] = mapped_column(
-        BigInteger, ForeignKey("users.chat_id"), nullable=True
-    )
+    chat_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.chat_id"))
 
 
 class Expense(Base):
