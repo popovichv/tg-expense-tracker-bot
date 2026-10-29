@@ -1,4 +1,5 @@
 from datetime import date
+from decimal import Decimal, InvalidOperation
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
@@ -117,13 +118,12 @@ async def amount_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip().replace(",", ".")
     amounts = [a.strip() for a in text.split("+")]
     try:
-        for i in range(len(amounts)):
-            amounts[i] = float(amounts[i])
-
-        amount = sum(amounts)
-        if amount <= 0:
+        # Decimal, not float: the amount column is Numeric(12, 2), and summing
+        # floats here would reintroduce the rounding drift it exists to avoid.
+        amount = sum(Decimal(a) for a in amounts)
+        if not amount.is_finite() or amount <= 0:
             raise ValueError
-    except ValueError:
+    except (InvalidOperation, ValueError):
         await update.message.reply_text(
             "Please enter a valid positive number (e.g. 12.50):",
             reply_markup=CANCEL_MARKUP,

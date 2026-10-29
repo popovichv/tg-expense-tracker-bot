@@ -1,6 +1,7 @@
 from datetime import date, datetime
+from decimal import Decimal
 
-from sqlalchemy import ForeignKey, func
+from sqlalchemy import ForeignKey, Numeric, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -29,7 +30,7 @@ class Expense(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     chat_id: Mapped[int] = mapped_column(ForeignKey("users.chat_id"))
     category_id: Mapped[int] = mapped_column(ForeignKey("categories.id"))
-    amount: Mapped[float]
+    amount: Mapped[Decimal] = mapped_column(Numeric(12, 2))
     description: Mapped[str | None]
     spent_at: Mapped[date] = mapped_column(default=date.today)
     currency: Mapped[str] = mapped_column(default="CAD")
