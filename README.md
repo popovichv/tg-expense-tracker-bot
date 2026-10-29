@@ -15,9 +15,14 @@ A Python-based Telegram bot with the PTB library and a SQLAlchemy ORM layer. Bui
 - `/add_category` — create top-level categories or subcategories
 - `/list_categories` — view your category tree
 - `/add_expense` — log an expense with category, amount, optional description, and date
+- `/set_currency` — set the currency new expenses are recorded in (defaults to USD)
 - `/cancel` — abandon whichever flow is in progress
 
 Amounts support addition expressions (e.g. `12.50 + 3`) and are stored as exact decimals. Categories support one level of nesting. Every step of every flow can be cancelled, by button or with `/cancel`.
+
+Each expense stores the currency it was recorded in, so changing `/set_currency` affects new
+expenses only and never rewrites what is already logged. The symbol is placed before or after
+the amount according to the convention for that currency — `$12.50`, but `12.50 zł`.
 
 ## Setup
 
@@ -80,6 +85,7 @@ schema is in place before the new container starts.
 handlers/       # PTB conversation and command handlers
 repo/           # Database query functions
 models/         # SQLAlchemy ORM models
+utils/          # Standalone helpers (clock, currency)
 migrations/     # Alembic environment and revisions
 database.py     # Engine and session setup
 config.py       # Environment variable loading and connection URL

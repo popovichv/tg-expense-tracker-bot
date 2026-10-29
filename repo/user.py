@@ -1,6 +1,7 @@
 from sqlalchemy.exc import IntegrityError
 
 from database import SessionLocal
+from utils.currency import DEFAULT_CURRENCY
 from models.models import User
 from repo.category import build_default_categories
 
@@ -42,3 +43,24 @@ def get_or_create_user(chat_id: int, name: str) -> tuple[User, bool]:
             session.refresh(user)
 
         return user, False
+
+
+def get_currency(chat_id: int) -> str:
+    """The currency new expenses for this chat should be recorded in."""
+    with SessionLocal() as session:
+        user = session.get(User, chat_id)
+        return user.currency if user else DEFAULT_CURRENCY
+
+
+def set_currency(chat_id: int, code: str) -> None:
+    """Change the currency for expenses recorded from now on.
+
+    Expenses already recorded keep the currency stored on them, so changing
+    this never rewrites history.
+    """
+    with SessionLocal() as session:
+        user = session.get(User, chat_id)
+        if user is None:
+            return
+        user.currency = code
+        session.commit()

@@ -14,6 +14,7 @@ from telegram.ext import (
 from repo.user import get_or_create_user
 
 from handlers.category import add_category_handler
+from handlers.currency import set_currency_handler
 from handlers.expense import add_expense_handler
 from handlers.list_categories import list_categories_handler
 
@@ -106,6 +107,7 @@ if __name__ == "__main__":
     application.add_handler(add_category_handler)
     application.add_handler(add_expense_handler)
     application.add_handler(list_categories_handler)
+    application.add_handler(set_currency_handler)
     application.add_handler(CommandHandler("cancel", stale_cancel))
     application.add_handler(CallbackQueryHandler(stale_cancel, pattern=r"^(cancel|exp_cancel)$"))
     application.add_error_handler(on_error)

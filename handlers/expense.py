@@ -12,8 +12,9 @@ from telegram.ext import (
     filters,
 )
 
-import clock
 from handlers.prompts import clear_prompts, track_prompt
+from repo.user import get_currency
+from utils import clock, currency
 from repo.category import get_top_level_categories, get_subcategories
 from repo.expense import add_expense as add_expense_to_db
 
@@ -183,7 +184,7 @@ async def description_skipped(update: Update, context: ContextTypes.DEFAULT_TYPE
     return CHOOSING_DATE
 
 
-def format_expense_summary(data, spent_at) -> str:
+def format_expense_summary(data, spent_at, code: str) -> str:
     """Build the confirmation message, escaping anything the user typed.
 
     Category names and descriptions are user supplied, so a name containing
@@ -192,13 +193,14 @@ def format_expense_summary(data, spent_at) -> str:
     """
     category = html.escape(data.get("category_name") or "")
     description = html.escape(data.get("description") or "N/A")
+    amount = html.escape(currency.format_amount(data["amount"], code))
 
     return (
         f"<b>Expense Recorded</b>\n"
         f"----------------------------\n"
         f"<b>Category:</b> {category}\n"
         f"<b>Description:</b> {description}\n"
-        f"<b>Amount:</b> ${data['amount']:.2f}\n"
+        f"<b>Amount:</b> {amount}\n"
         f"<b>Date:</b> {spent_at}"
     )
 
@@ -208,6 +210,7 @@ async def date_set_today(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     data = context.user_data
     spent_at = clock.today()
+    code = get_currency(update.effective_chat.id)
 
     add_expense_to_db(
         chat_id=update.effective_chat.id,
@@ -215,10 +218,11 @@ async def date_set_today(update: Update, context: ContextTypes.DEFAULT_TYPE):
         amount=data["amount"],
         description=data.get("description"),
         spent_at=spent_at,
+        currency=code,
     )
 
     await update.callback_query.edit_message_text(
-        format_expense_summary(data, spent_at),
+        format_expense_summary(data, spent_at, code),
         parse_mode="HTML",
     )
 
@@ -239,16 +243,19 @@ async def date_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return CHOOSING_DATE
 
     data = context.user_data
+    code = get_currency(update.effective_chat.id)
+
     add_expense_to_db(
         chat_id=update.effective_chat.id,
         category_id=data["category_id"],
         amount=data["amount"],
         description=data.get("description"),
         spent_at=spent_at,
+        currency=code,
     )
 
     await update.message.reply_text(
-        format_expense_summary(data, spent_at),
+        format_expense_summary(data, spent_at, code),
         parse_mode="HTML",
     )
 

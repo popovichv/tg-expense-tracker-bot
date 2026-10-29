@@ -15,7 +15,7 @@ def get_timezone() -> ZoneInfo:
     Telegram does not report a user's timezone, so dates come from this
     setting rather than from the server clock, which in a container is UTC.
     """
-    name = os.getenv("TIMEZONE", "UTC")
+    name = os.getenv("TIMEZONE", "").strip() or "UTC"
     try:
         return ZoneInfo(name)
     except (ZoneInfoNotFoundError, ValueError) as exc:

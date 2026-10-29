@@ -1,18 +1,24 @@
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 
 from database import SessionLocal
 from models import Category
 
+CATCH_ALL_CATEGORY = "Other"
+
 DEFAULT_CATEGORIES = (
-    "Groceries",
-    "Eating out",
+    "Food & Dining",
     "Transport",
-    "Housing",
-    "Utilities",
-    "Health",
-    "Entertainment",
     "Shopping",
-    "Other",
+    "Housing",
+    "Entertainment",
+    "Health & Fitness",
+    "Hobbies",
+    CATCH_ALL_CATEGORY,
+)
+
+CATCH_ALL_LAST = case(
+    (func.lower(Category.name) == CATCH_ALL_CATEGORY.lower(), 1),
+    else_=0,
 )
 
 
@@ -34,7 +40,7 @@ def get_top_level_categories(chat_id: int) -> list[Category]:
                 Category.chat_id == chat_id,
                 Category.parent_id == None,
             )
-            .order_by(Category.name)
+            .order_by(CATCH_ALL_LAST, Category.name)
         )
         return result.scalars().all()
 
@@ -47,7 +53,7 @@ def get_subcategories(parent_id: int, chat_id: int) -> list[Category]:
                 Category.parent_id == parent_id,
                 Category.chat_id == chat_id,
             )
-            .order_by(Category.name)
+            .order_by(CATCH_ALL_LAST, Category.name)
         )
         return list(result.scalars().all())
 
