@@ -23,10 +23,16 @@ Amounts support addition expressions (e.g. `12.50 + 3`) and are stored as exact 
 
 ### Environment variables
 
-| Variable       | Description                  |
-| -------------- | ---------------------------- |
-| `TG_TOKEN`     | Telegram bot token           |
-| `DATABASE_URL` | Full Postgres connection URL |
+| Variable       | Description                                          |
+| -------------- | ---------------------------------------------------- |
+| `TG_TOKEN`     | Telegram bot token                                   |
+| `DATABASE_URL` | Full Postgres connection URL                         |
+| `TIMEZONE`     | IANA timezone for dates, e.g. `America/Toronto`. Optional, defaults to `UTC` |
+
+Telegram does not tell the bot where you are, so `TIMEZONE` is what "today" means when
+logging an expense. Leave it unset and the bot uses UTC, which will file an evening expense
+under tomorrow if you are west of it. An unrecognised value stops the bot at startup rather
+than silently falling back.
 
 `DATABASE_URL` is required — the bot stops at startup with a clear error if it is missing.
 Managed Postgres providers generally inject it automatically, so no manual database

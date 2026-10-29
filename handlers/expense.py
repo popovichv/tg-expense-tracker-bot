@@ -12,6 +12,7 @@ from telegram.ext import (
     filters,
 )
 
+import clock
 from handlers.prompts import clear_prompts, track_prompt
 from repo.category import get_top_level_categories, get_subcategories
 from repo.expense import add_expense as add_expense_to_db
@@ -206,7 +207,7 @@ async def date_set_today(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
 
     data = context.user_data
-    spent_at = date.today()
+    spent_at = clock.today()
 
     add_expense_to_db(
         chat_id=update.effective_chat.id,

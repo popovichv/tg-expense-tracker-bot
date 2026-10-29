@@ -1,8 +1,10 @@
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import BigInteger, ForeignKey, MetaData, Numeric, func
+from sqlalchemy import BigInteger, DateTime, ForeignKey, MetaData, Numeric, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+import clock
 
 # Named constraints, so a migration that has to alter or drop one has a stable
 # identifier to reference instead of a name the database invented.
@@ -47,6 +49,8 @@ class Expense(Base):
     category_id: Mapped[int] = mapped_column(ForeignKey("categories.id"))
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2))
     description: Mapped[str | None]
-    spent_at: Mapped[date] = mapped_column(default=date.today)
+    spent_at: Mapped[date] = mapped_column(default=clock.today)
     currency: Mapped[str] = mapped_column(default="CAD")
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
