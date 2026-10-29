@@ -2,15 +2,16 @@ import logging
 
 from config import BOT_TOKEN
 from telegram import Update
+from telegram.error import TelegramError
 from telegram.ext import (
     ApplicationBuilder,
     CallbackQueryHandler,
     CommandHandler,
     ContextTypes,
+    TypeHandler,
 )
 
-from database import SessionLocal
-from models.models import User
+from repo.user import get_or_create_user
 
 from handlers.category import add_category_handler
 from handlers.expense import add_expense_handler
@@ -27,11 +28,44 @@ for _app_logger in ("__main__", "handlers", "models", "repo", "database"):
 logger = logging.getLogger(__name__)
 
 
-def register_user(chat_id: int, name: str):
-    with SessionLocal() as session:
-        user = User(chat_id=chat_id, name=name)
-        session.add(user)
-        session.commit()
+async def ensure_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Register the chat before any handler writes a row keyed on it.
+
+    Runs ahead of the command handlers for every update, so a user who never
+    sent /start does not hit a foreign key violation. Each chat is looked up
+    once per process. The `user_created` flag is rewritten on every update and
+    means "this update registered the chat", which is what `start` reports on.
+    """
+    chat = update.effective_chat
+    user = update.effective_user
+
+    if chat is None or user is None:
+        return
+
+    known_chats = context.bot_data.setdefault("known_chats", set())
+    if chat.id in known_chats:
+        context.chat_data["user_created"] = False
+        return
+
+    _, created = get_or_create_user(chat.id, user.first_name)
+    known_chats.add(chat.id)
+    context.chat_data["user_created"] = created
+
+
+async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE):
+    """Log an unhandled handler exception and tell the user, rather than going quiet."""
+    logger.error("Unhandled exception while processing an update", exc_info=context.error)
+
+    if not isinstance(update, Update) or update.effective_chat is None:
+        return
+
+    try:
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="Something went wrong. Please try again.",
+        )
+    except TelegramError:
+        pass
 
 
 async def stale_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -51,16 +85,18 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     name = update.effective_user.first_name
 
-    register_user(chat_id, name)
+    if context.chat_data.pop("user_created", False):
+        text = f"Hi {name}! You have been saved in the database with chat ID: {chat_id}"
+    else:
+        text = f"Welcome back, {name}! You are already registered."
 
-    await context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text=f"Hi {name}! You have been saved in the database with chat ID: {chat_id}",
-    )
+    await context.bot.send_message(chat_id=chat_id, text=text)
 
 
 if __name__ == "__main__":
     application = ApplicationBuilder().token(BOT_TOKEN).build()
+
+    application.add_handler(TypeHandler(Update, ensure_user), group=-1)
 
     start_handler = CommandHandler("start", start)
     application.add_handler(start_handler)
@@ -69,4 +105,5 @@ if __name__ == "__main__":
     application.add_handler(list_categories_handler)
     application.add_handler(CommandHandler("cancel", stale_cancel))
     application.add_handler(CallbackQueryHandler(stale_cancel, pattern=r"^(cancel|exp_cancel)$"))
+    application.add_error_handler(on_error)
     application.run_polling()
