@@ -14,8 +14,9 @@ A Python-based Telegram bot with the PTB library and a SQLAlchemy ORM layer. Bui
 - `/add_category` — create top-level categories or subcategories
 - `/list_categories` — view your category tree
 - `/add_expense` — log an expense with category, amount, optional description, and date
+- `/cancel` — abandon whichever flow is in progress
 
-Amounts support addition expressions (e.g. `12.50 + 3`). Categories support one level of nesting.
+Amounts support addition expressions (e.g. `12.50 + 3`). Categories support one level of nesting. Every step of every flow can be cancelled, by button or with `/cancel`.
 
 ## Setup
 

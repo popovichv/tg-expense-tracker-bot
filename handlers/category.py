@@ -14,6 +14,9 @@ TOP_CATEGORY = "top_level"
 SUB_CATEGORY = "with_parent"
 CANCEL = "cancel"
 
+CANCEL_BUTTON = InlineKeyboardButton("Cancel", callback_data=CANCEL)
+CANCEL_MARKUP = InlineKeyboardMarkup([[CANCEL_BUTTON]])
+
 # States
 CHOOSING_TYPE = 1
 CHOOSING_PARENT = 2
@@ -24,7 +27,7 @@ async def add_category(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [InlineKeyboardButton("Top-level category", callback_data=TOP_CATEGORY)],
         [InlineKeyboardButton("Subcategory", callback_data=SUB_CATEGORY)],
-        [InlineKeyboardButton("Cancel", callback_data=CANCEL)],
+        [CANCEL_BUTTON],
     ]
 
     await update.message.reply_text(
@@ -39,7 +42,10 @@ async def chosen_top_category(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     context.user_data["parent_id"] = None
 
-    await update.callback_query.edit_message_text("Please send me the category name.")
+    await update.callback_query.edit_message_text(
+        "Please send me the category name.",
+        reply_markup=CANCEL_MARKUP,
+    )
     return TYPING_NAME
 
 
@@ -57,7 +63,7 @@ async def chosen_sub_category(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     buttons = [InlineKeyboardButton(cat.name, callback_data=str(cat.id)) for cat in user_categories]
     keyboard = [buttons[i : i + 2] for i in range(0, len(buttons), 2)]
-    keyboard.append([InlineKeyboardButton("Cancel", callback_data=CANCEL)])
+    keyboard.append([CANCEL_BUTTON])
 
     await update.callback_query.edit_message_text(
         "Choose a parent category:",
@@ -72,7 +78,10 @@ async def chosen_parent(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     parent_id = int(update.callback_query.data)
     context.user_data["parent_id"] = parent_id
 
-    await update.callback_query.edit_message_text("Please send me the subcategory name.")
+    await update.callback_query.edit_message_text(
+        "Please send me the subcategory name.",
+        reply_markup=CANCEL_MARKUP,
+    )
     return TYPING_NAME
 
 
@@ -85,13 +94,20 @@ async def received_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     label = "Category" if parent_id is None else "Subcategory"
     await update.message.reply_text(f"{label} '{name}' added.")
+    context.user_data.clear()
     return ConversationHandler.END
 
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.callback_query.answer()
+    text = "Category creation cancelled."
 
-    await update.callback_query.edit_message_text("Category creation cancelled.")
+    if update.callback_query:
+        await update.callback_query.answer()
+        await update.callback_query.edit_message_text(text)
+    else:
+        await update.message.reply_text(text)
+
+    context.user_data.clear()
     return ConversationHandler.END
 
 
@@ -108,8 +124,12 @@ add_category_handler = ConversationHandler(
             CallbackQueryHandler(cancel, pattern=f"^{CANCEL}$"),
         ],
         TYPING_NAME: [
+            CallbackQueryHandler(cancel, pattern=f"^{CANCEL}$"),
             MessageHandler(filters.TEXT & ~filters.COMMAND, received_name),
         ],
     },
-    fallbacks=[CallbackQueryHandler(cancel, pattern=f"^{CANCEL}$")],
+    fallbacks=[
+        CommandHandler("cancel", cancel),
+        CallbackQueryHandler(cancel, pattern=f"^{CANCEL}$"),
+    ],
 )

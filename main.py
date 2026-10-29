@@ -4,6 +4,7 @@ from config import BOT_TOKEN
 from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
+    CallbackQueryHandler,
     CommandHandler,
     ContextTypes,
 )
@@ -38,6 +39,19 @@ def register_user(chat_id: int, name: str):
         session.commit()
 
 
+async def stale_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handles /cancel and Cancel buttons left over from a finished conversation.
+
+    Registered after the conversation handlers, so an active conversation always
+    cancels itself first and this only catches what nothing else claimed.
+    """
+    if update.callback_query:
+        await update.callback_query.answer("This action is no longer active.")
+        return
+
+    await update.message.reply_text("Nothing to cancel.")
+
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     name = update.effective_user.first_name
@@ -59,5 +73,7 @@ if __name__ == "__main__":
     application.add_handler(add_category_handler)
     application.add_handler(add_expense_handler)
     application.add_handler(list_categories_handler)
+    application.add_handler(CommandHandler("cancel", stale_cancel))
+    application.add_handler(CallbackQueryHandler(stale_cancel, pattern=r"^(cancel|exp_cancel)$"))
     application.job_queue.run_repeating(keep_alive_db, interval=180, first=10)
     application.run_polling()

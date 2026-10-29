@@ -19,6 +19,12 @@ SKIP_DESC = "exp_skip_desc"
 TODAY = "exp_today"
 USE_PARENT = "exp_use_parent"
 
+CANCEL_BUTTON = InlineKeyboardButton("Cancel", callback_data=CANCEL)
+CANCEL_MARKUP = InlineKeyboardMarkup([[CANCEL_BUTTON]])
+
+AMOUNT_PROMPT = "Enter the amount:"
+DATE_PROMPT = "When was this expense? Enter a date (YYYY-MM-DD) or tap Today:"
+
 # States
 CHOOSING_CATEGORY = 1
 CHOOSING_SUBCATEGORY = 2
@@ -33,7 +39,7 @@ def build_category_keyboard(categories, include_cancel=True):
     ]
     keyboard = [buttons[i : i + 2] for i in range(0, len(buttons), 2)]
     if include_cancel:
-        keyboard.append([InlineKeyboardButton("Cancel", callback_data=CANCEL)])
+        keyboard.append([CANCEL_BUTTON])
     return keyboard
 
 
@@ -71,7 +77,7 @@ async def top_category_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE
         keyboard = build_category_keyboard(subcategories, include_cancel=False)
         parent_name = context.user_data["category_names"][category_id]
         keyboard.append([InlineKeyboardButton(f"Use '{parent_name}' directly", callback_data=USE_PARENT)])
-        keyboard.append([InlineKeyboardButton("Cancel", callback_data=CANCEL)])
+        keyboard.append([CANCEL_BUTTON])
         await update.callback_query.edit_message_text(
             "Choose a subcategory:",
             reply_markup=InlineKeyboardMarkup(keyboard),
@@ -81,7 +87,7 @@ async def top_category_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE
     context.user_data["category_id"] = category_id
     context.user_data["category_name"] = context.user_data["category_names"][category_id]
 
-    await update.callback_query.edit_message_text("Enter the amount:")
+    await update.callback_query.edit_message_text(AMOUNT_PROMPT, reply_markup=CANCEL_MARKUP)
     return TYPING_AMOUNT
 
 
@@ -92,7 +98,7 @@ async def parent_category_used(update: Update, context: ContextTypes.DEFAULT_TYP
     context.user_data["category_id"] = category_id
     context.user_data["category_name"] = context.user_data["category_names"][category_id]
 
-    await update.callback_query.edit_message_text("Enter the amount:")
+    await update.callback_query.edit_message_text(AMOUNT_PROMPT, reply_markup=CANCEL_MARKUP)
     return TYPING_AMOUNT
 
 
@@ -103,7 +109,7 @@ async def subcategory_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE)
     context.user_data["category_id"] = category_id
     context.user_data["category_name"] = context.user_data["category_names"][category_id]
 
-    await update.callback_query.edit_message_text("Enter the amount:")
+    await update.callback_query.edit_message_text(AMOUNT_PROMPT, reply_markup=CANCEL_MARKUP)
     return TYPING_AMOUNT
 
 
@@ -118,12 +124,18 @@ async def amount_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if amount <= 0:
             raise ValueError
     except ValueError:
-        await update.message.reply_text("Please enter a valid positive number (e.g. 12.50):")
+        await update.message.reply_text(
+            "Please enter a valid positive number (e.g. 12.50):",
+            reply_markup=CANCEL_MARKUP,
+        )
         return TYPING_AMOUNT
 
     context.user_data["amount"] = amount
 
-    keyboard = [[InlineKeyboardButton("Skip", callback_data=SKIP_DESC)]]
+    keyboard = [
+        [InlineKeyboardButton("Skip", callback_data=SKIP_DESC)],
+        [CANCEL_BUTTON],
+    ]
 
     await update.message.reply_text(
         "Enter a description (or skip):",
@@ -135,10 +147,13 @@ async def amount_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def description_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["description"] = update.message.text.strip()
 
-    keyboard = [[InlineKeyboardButton("Today", callback_data=TODAY)]]
+    keyboard = [
+        [InlineKeyboardButton("Today", callback_data=TODAY)],
+        [CANCEL_BUTTON],
+    ]
 
     await update.message.reply_text(
-        "When was this expense? Enter a date (YYYY-MM-DD) or tap Today:",
+        DATE_PROMPT,
         reply_markup=InlineKeyboardMarkup(keyboard),
     )
     return CHOOSING_DATE
@@ -149,10 +164,13 @@ async def description_skipped(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     context.user_data["description"] = None
 
-    keyboard = [[InlineKeyboardButton("Today", callback_data=TODAY)]]
+    keyboard = [
+        [InlineKeyboardButton("Today", callback_data=TODAY)],
+        [CANCEL_BUTTON],
+    ]
 
     await update.callback_query.edit_message_text(
-        "When was this expense? Enter a date (YYYY-MM-DD) or tap Today:",
+        DATE_PROMPT,
         reply_markup=InlineKeyboardMarkup(keyboard),
     )
     return CHOOSING_DATE
@@ -190,7 +208,8 @@ async def date_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
         spent_at = date.fromisoformat(update.message.text.strip())
     except ValueError:
         await update.message.reply_text(
-            "Invalid date format. Please use YYYY-MM-DD (e.g. 2024-05-20):"
+            "Invalid date format. Please use YYYY-MM-DD (e.g. 2024-05-20):",
+            reply_markup=CANCEL_MARKUP,
         )
         return CHOOSING_DATE
 
@@ -217,9 +236,14 @@ async def date_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.callback_query.answer()
+    text = "Expense creation cancelled."
 
-    await update.callback_query.edit_message_text("Expense creation cancelled.")
+    if update.callback_query:
+        await update.callback_query.answer()
+        await update.callback_query.edit_message_text(text)
+    else:
+        await update.message.reply_text(text)
+
     context.user_data.clear()
     return ConversationHandler.END
 
@@ -237,16 +261,22 @@ add_expense_handler = ConversationHandler(
             CallbackQueryHandler(cancel, pattern=f"^{CANCEL}$"),
         ],
         TYPING_AMOUNT: [
+            CallbackQueryHandler(cancel, pattern=f"^{CANCEL}$"),
             MessageHandler(filters.TEXT & ~filters.COMMAND, amount_received),
         ],
         TYPING_DESCRIPTION: [
-            MessageHandler(filters.TEXT & ~filters.COMMAND, description_received),
             CallbackQueryHandler(description_skipped, pattern=f"^{SKIP_DESC}$"),
+            CallbackQueryHandler(cancel, pattern=f"^{CANCEL}$"),
+            MessageHandler(filters.TEXT & ~filters.COMMAND, description_received),
         ],
         CHOOSING_DATE: [
             CallbackQueryHandler(date_set_today, pattern=f"^{TODAY}$"),
+            CallbackQueryHandler(cancel, pattern=f"^{CANCEL}$"),
             MessageHandler(filters.TEXT & ~filters.COMMAND, date_received),
         ],
     },
-    fallbacks=[CallbackQueryHandler(cancel, pattern=f"^{CANCEL}$")],
+    fallbacks=[
+        CommandHandler("cancel", cancel),
+        CallbackQueryHandler(cancel, pattern=f"^{CANCEL}$"),
+    ],
 )
