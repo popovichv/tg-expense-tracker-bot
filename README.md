@@ -37,8 +37,40 @@ Create a `.env` file locally or set these in your deployment platform project se
 
 ```bash
 pip install -r requirements.txt
+alembic upgrade head
 python main.py
 ```
+
+### Database migrations
+
+The schema is owned by [Alembic](https://alembic.sqlalchemy.org/), not by the app — `main.py`
+does not create tables. Apply the current schema with:
+
+```bash
+alembic upgrade head
+```
+
+After changing anything in `models/`, generate a revision, **read it**, then apply it:
+
+```bash
+alembic revision --autogenerate -m "describe the change"
+alembic upgrade head
+```
+
+Autogenerate drafts a revision by diffing the models against the live database; it is not
+authoritative. It renders a renamed column as a drop plus an add, which destroys that
+column's data, so review every generated file before applying it. Revisions in
+`migrations/versions/` are source code and belong in git.
+
+The connection URL comes from `DATABASE_URL` via `migrations/env.py`, so `alembic.ini`
+holds no credentials.
+
+On deploy, run `alembic upgrade head` as the platform's **pre-deploy command**, so the
+schema is in place before the new container starts.
+
+> One-time note: if a database already has these tables from an earlier `create_all` boot,
+> run `alembic stamp head` against it once. That records the baseline revision without
+> re-running the DDL — `alembic upgrade head` would fail on "table already exists".
 
 ## Project structure
 
@@ -46,7 +78,9 @@ python main.py
 handlers/       # PTB conversation and command handlers
 repo/           # Database query functions
 models/         # SQLAlchemy ORM models
+migrations/     # Alembic environment and revisions
 database.py     # Engine and session setup
-config.py       # Environment variable loading
+config.py       # Environment variable loading and connection URL
 main.py         # App entry point and job queue
+alembic.ini     # Alembic config (no credentials; URL comes from env.py)
 ```

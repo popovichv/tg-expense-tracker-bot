@@ -11,7 +11,7 @@ from telegram.ext import (
 
 from sqlalchemy import text
 from database import SessionLocal, engine
-from models.models import Base, User
+from models.models import User
 
 from handlers.category import add_category_handler
 from handlers.expense import add_expense_handler
@@ -65,7 +65,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 if __name__ == "__main__":
-    Base.metadata.create_all(engine)
+    # The schema is owned by Alembic (`alembic upgrade head`), not by the app.
     application = ApplicationBuilder().token(BOT_TOKEN).build()
 
     start_handler = CommandHandler("start", start)
