@@ -31,7 +31,7 @@ DESTINATION_PREFIX = "mng_dest"
 
 CANCEL_BUTTON = InlineKeyboardButton("Cancel", callback_data=CANCEL)
 CANCEL_MARKUP = InlineKeyboardMarkup([[CANCEL_BUTTON]])
-BACK_BUTTON = InlineKeyboardButton("← Back", callback_data=BACK)
+BACK_BUTTON = InlineKeyboardButton("Back", callback_data=BACK)
 
 ACTION_PROMPT = "What do you want to do?"
 ACTION_MARKUP = InlineKeyboardMarkup(
