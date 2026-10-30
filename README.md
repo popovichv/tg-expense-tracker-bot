@@ -14,11 +14,21 @@ A Python-based Telegram bot with the PTB library and a SQLAlchemy ORM layer. Bui
 - `/start` — register user
 - `/add_category` — create top-level categories or subcategories
 - `/list_categories` — view your category tree
+- `/manage_categories` — rename or delete a category or subcategory
 - `/add_expense` — log an expense with category, amount, optional description, and date
 - `/set_currency` — set the currency new expenses are recorded in (defaults to USD)
 - `/cancel` — abandon whichever flow is in progress
 
 Amounts support addition expressions (e.g. `12.50 + 3`) and are stored as exact decimals. Categories support one level of nesting. Every step of every flow can be cancelled, by button or with `/cancel`.
+
+Renaming a category keeps the expenses logged against it, which point at the row and not at the
+name. The starter `Other` is listed last in the pickers by virtue of being called "Other", so
+renaming it drops it back into alphabetical order with everything else.
+
+Deleting a category never deletes an expense. A subcategory's expenses move up to its parent;
+a top-level category's move wherever you choose, and deleting it takes its subcategories with
+it. A category holding expenses with nowhere to move them — your only one — cannot be deleted.
+Every delete is confirmed with a count of what it will affect first, and none of it undoes.
 
 Each expense stores the currency it was recorded in, so changing `/set_currency` affects new
 expenses only and never rewrites what is already logged. The symbol is placed before or after
