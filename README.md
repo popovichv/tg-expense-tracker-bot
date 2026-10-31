@@ -95,7 +95,7 @@ schema is in place before the new container starts.
 handlers/       # PTB conversation and command handlers
 repo/           # Database query functions
 models/         # SQLAlchemy ORM models
-utils/          # Standalone helpers (clock, currency)
+utils/          # Standalone helpers (clock, currency, amounts)
 migrations/     # Alembic environment and revisions
 database.py     # Engine and session setup
 config.py       # Environment variable loading and connection URL

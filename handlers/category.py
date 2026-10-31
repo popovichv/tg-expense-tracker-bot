@@ -1,4 +1,5 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from handlers.pickers import category_markup, chosen_id
 from handlers.prompts import clear_prompts, track_prompt
 from repo.category import (
     add_category as add_category_to_db,
@@ -18,6 +19,8 @@ from telegram.ext import (
 TOP_CATEGORY = "top_level"
 SUB_CATEGORY = "with_parent"
 CANCEL = "cancel"
+
+PARENT_PREFIX = "cat_parent"
 
 CANCEL_BUTTON = InlineKeyboardButton("Cancel", callback_data=CANCEL)
 CANCEL_MARKUP = InlineKeyboardMarkup([[CANCEL_BUTTON]])
@@ -67,13 +70,9 @@ async def chosen_sub_category(update: Update, context: ContextTypes.DEFAULT_TYPE
         )
         return ConversationHandler.END
 
-    buttons = [InlineKeyboardButton(cat.name, callback_data=str(cat.id)) for cat in user_categories]
-    keyboard = [buttons[i : i + 2] for i in range(0, len(buttons), 2)]
-    keyboard.append([CANCEL_BUTTON])
-
     await update.callback_query.edit_message_text(
         "Choose a parent category:",
-        reply_markup=InlineKeyboardMarkup(keyboard),
+        reply_markup=category_markup(user_categories, PARENT_PREFIX, [CANCEL_BUTTON]),
     )
     return CHOOSING_PARENT
 
@@ -81,8 +80,7 @@ async def chosen_sub_category(update: Update, context: ContextTypes.DEFAULT_TYPE
 async def chosen_parent(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await update.callback_query.answer()
 
-    parent_id = int(update.callback_query.data)
-    context.user_data["parent_id"] = parent_id
+    context.user_data["parent_id"] = chosen_id(update)
 
     await update.callback_query.edit_message_text(
         "Please send me the subcategory name.",
@@ -148,7 +146,7 @@ add_category_handler = ConversationHandler(
             CallbackQueryHandler(cancel, pattern=f"^{CANCEL}$"),
         ],
         CHOOSING_PARENT: [
-            CallbackQueryHandler(chosen_parent, pattern=r"^\d+$"),
+            CallbackQueryHandler(chosen_parent, pattern=rf"^{PARENT_PREFIX}_\d+$"),
             CallbackQueryHandler(cancel, pattern=f"^{CANCEL}$"),
         ],
         TYPING_NAME: [

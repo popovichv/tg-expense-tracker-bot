@@ -8,6 +8,7 @@ from telegram.ext import (
     filters,
 )
 
+from handlers.pickers import category_markup, chosen_id
 from handlers.prompts import clear_prompts, track_prompt
 from repo.category import (
     delete_category_branch,
@@ -32,6 +33,7 @@ DESTINATION_PREFIX = "mng_dest"
 CANCEL_BUTTON = InlineKeyboardButton("Cancel", callback_data=CANCEL)
 CANCEL_MARKUP = InlineKeyboardMarkup([[CANCEL_BUTTON]])
 BACK_BUTTON = InlineKeyboardButton("Back", callback_data=BACK)
+NAV_ROW = [BACK_BUTTON, CANCEL_BUTTON]
 
 ACTION_PROMPT = "What do you want to do?"
 ACTION_MARKUP = InlineKeyboardMarkup(
@@ -72,33 +74,6 @@ def subcategory_count(count: int) -> str:
     return "1 subcategory" if count == 1 else f"{count} subcategories"
 
 
-def category_rows(categories, prefix=CATEGORY_PREFIX):
-    buttons = [
-        InlineKeyboardButton(cat.name, callback_data=f"{prefix}_{cat.id}") for cat in categories
-    ]
-    return [buttons[i : i + 2] for i in range(0, len(buttons), 2)]
-
-
-def category_markup(categories):
-    return InlineKeyboardMarkup(category_rows(categories) + [[BACK_BUTTON, CANCEL_BUTTON]])
-
-
-def destination_markup(categories):
-    rows = category_rows(categories, prefix=DESTINATION_PREFIX)
-    return InlineKeyboardMarkup(rows + [[BACK_BUTTON, CANCEL_BUTTON]])
-
-
-def subcategory_markup(subcategories, parent_label):
-    keyboard = category_rows(subcategories)
-    keyboard.append([InlineKeyboardButton(parent_label, callback_data=PARENT)])
-    keyboard.append([BACK_BUTTON, CANCEL_BUTTON])
-    return InlineKeyboardMarkup(keyboard)
-
-
-def chosen_id(update: Update) -> int:
-    return int(update.callback_query.data.split("_")[2])
-
-
 async def finish_with(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
     """Close the flow on the message the user is looking at, saying why."""
     await update.callback_query.edit_message_text(text)
@@ -131,7 +106,7 @@ async def show_categories(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.callback_query.edit_message_text(
         CATEGORY_PROMPTS[context.user_data["action"]],
-        reply_markup=category_markup(categories),
+        reply_markup=category_markup(categories, CATEGORY_PREFIX, NAV_ROW),
     )
     return CHOOSING_CATEGORY
 
@@ -194,9 +169,13 @@ async def top_category_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE
         name=context.user_data["category_names"][category_id]
     )
 
+    parent_row = [InlineKeyboardButton(label, callback_data=PARENT)]
+
     await update.callback_query.edit_message_text(
         "Choose a subcategory:",
-        reply_markup=subcategory_markup(subcategories, label),
+        reply_markup=category_markup(
+            subcategories, CATEGORY_PREFIX, NAV_ROW, extra_row=parent_row
+        ),
     )
     return CHOOSING_SUBCATEGORY
 
@@ -324,7 +303,7 @@ async def begin_delete(
 
     await update.callback_query.edit_message_text(
         f"{branch_holds(context, deletion.expense_count)}.\nWhere should they go?",
-        reply_markup=destination_markup(destinations),
+        reply_markup=category_markup(destinations, DESTINATION_PREFIX, NAV_ROW),
     )
     return CHOOSING_DESTINATION
 
@@ -372,7 +351,7 @@ async def confirm_delete(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     keyboard = [
         [InlineKeyboardButton("Delete", callback_data=CONFIRM)],
-        [BACK_BUTTON, CANCEL_BUTTON],
+        NAV_ROW,
     ]
 
     await update.callback_query.edit_message_text(
