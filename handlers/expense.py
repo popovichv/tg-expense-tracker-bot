@@ -10,6 +10,7 @@ from telegram.ext import (
     filters,
 )
 
+from handlers.manage_expenses import edit_markup
 from handlers.pickers import category_markup, chosen_id
 from handlers.prompts import clear_prompts, track_prompt
 from handlers.summary import expense_summary
@@ -192,7 +193,7 @@ async def date_set_today(update: Update, context: ContextTypes.DEFAULT_TYPE):
     spent_at = clock.today()
     code = get_currency(update.effective_chat.id)
 
-    add_expense_to_db(
+    expense = add_expense_to_db(
         chat_id=update.effective_chat.id,
         category_id=data["category_id"],
         amount=data["amount"],
@@ -204,6 +205,7 @@ async def date_set_today(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.edit_message_text(
         format_expense_summary(data, spent_at, code),
         parse_mode="HTML",
+        reply_markup=edit_markup(expense.id),
     )
 
     await clear_prompts(update, context, keep=update.callback_query.message.message_id)
@@ -225,7 +227,7 @@ async def date_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = context.user_data
     code = get_currency(update.effective_chat.id)
 
-    add_expense_to_db(
+    expense = add_expense_to_db(
         chat_id=update.effective_chat.id,
         category_id=data["category_id"],
         amount=data["amount"],
@@ -237,6 +239,7 @@ async def date_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         format_expense_summary(data, spent_at, code),
         parse_mode="HTML",
+        reply_markup=edit_markup(expense.id),
     )
 
     await clear_prompts(update, context)
