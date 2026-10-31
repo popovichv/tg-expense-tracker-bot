@@ -18,6 +18,7 @@ from handlers.currency import set_currency_handler
 from handlers.expense import add_expense_handler
 from handlers.list_categories import list_categories_handler
 from handlers.manage_categories import manage_categories_handler
+from handlers.manage_expenses import manage_expenses_handler
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -109,6 +110,7 @@ if __name__ == "__main__":
     application.add_handler(add_expense_handler)
     application.add_handler(list_categories_handler)
     application.add_handler(manage_categories_handler)
+    application.add_handler(manage_expenses_handler)
     application.add_handler(set_currency_handler)
     application.add_handler(CommandHandler("cancel", stale_cancel))
     application.add_handler(

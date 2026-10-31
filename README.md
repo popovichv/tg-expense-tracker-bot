@@ -16,6 +16,7 @@ A Python-based Telegram bot with the PTB library and a SQLAlchemy ORM layer. Bui
 - `/list_categories` — view your category tree
 - `/manage_categories` — rename or delete a category or subcategory
 - `/add_expense` — log an expense with category, amount, optional description, and date
+- `/manage_expenses` — browse your expenses and edit or delete one
 - `/set_currency` — set the currency new expenses are recorded in (defaults to USD)
 - `/cancel` — abandon whichever flow is in progress
 
@@ -29,6 +30,19 @@ Deleting a category never deletes an expense. A subcategory's expenses move up t
 a top-level category's move wherever you choose, and deleting it takes its subcategories with
 it. A category holding expenses with nowhere to move them — your only one — cannot be deleted.
 Every delete is confirmed with a count of what it will affect first, and none of it undoes.
+
+Expenses are browsed newest first, six to a page. Opening one shows a card with its amount,
+category, description and date, each editable on its own. An edit is written the moment you
+send it and the card redraws underneath, so fixing two fields on one expense is one visit
+rather than two. Editing an amount keeps the currency the expense was recorded in.
+
+The card is laid out exactly like the confirmation an expense is added with — one layout,
+in `handlers/summary.py`, so the two cannot drift apart. Its heading says what just
+happened, so an edit reports itself there rather than on a line of its own.
+
+The confirmation `/add_expense` ends with carries an Edit button onto that same card, for the
+amount typed one digit out. It keeps working later on, and across restarts, because the
+button names the expense itself rather than relying on the conversation still being open.
 
 Each expense stores the currency it was recorded in, so changing `/set_currency` affects new
 expenses only and never rewrites what is already logged. The symbol is placed before or after
