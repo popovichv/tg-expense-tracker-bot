@@ -1,6 +1,4 @@
-import html
 from datetime import date
-from decimal import Decimal, InvalidOperation
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
@@ -12,13 +10,19 @@ from telegram.ext import (
     filters,
 )
 
+from handlers.manage_expenses import edit_markup
+from handlers.pickers import category_markup, chosen_id
 from handlers.prompts import clear_prompts, track_prompt
+from handlers.summary import expense_summary
 from repo.user import get_currency
-from utils import clock, currency
+from utils import clock
+from utils.amounts import parse_amount
 from repo.category import get_top_level_categories, get_subcategories
 from repo.expense import add_expense as add_expense_to_db
 
 # Callbacks
+CATEGORY_PREFIX = "exp_cat"
+
 CANCEL = "exp_cancel"
 SKIP_DESC = "exp_skip_desc"
 TODAY = "exp_today"
@@ -38,16 +42,6 @@ TYPING_DESCRIPTION = 4
 CHOOSING_DATE = 5
 
 
-def build_category_keyboard(categories, include_cancel=True):
-    buttons = [
-        InlineKeyboardButton(cat.name, callback_data=f"exp_cat_{cat.id}") for cat in categories
-    ]
-    keyboard = [buttons[i : i + 2] for i in range(0, len(buttons), 2)]
-    if include_cancel:
-        keyboard.append([CANCEL_BUTTON])
-    return keyboard
-
-
 async def add_expense(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     categories = get_top_level_categories(chat_id)
@@ -60,10 +54,9 @@ async def add_expense(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     context.user_data["category_names"] = {cat.id: cat.name for cat in categories}
 
-    keyboard = build_category_keyboard(categories)
     prompt = await update.message.reply_text(
         "Choose a category:",
-        reply_markup=InlineKeyboardMarkup(keyboard),
+        reply_markup=category_markup(categories, CATEGORY_PREFIX, [CANCEL_BUTTON]),
     )
     track_prompt(context, prompt)
     return CHOOSING_CATEGORY
@@ -72,7 +65,7 @@ async def add_expense(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def top_category_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
 
-    category_id = int(update.callback_query.data.split("_")[2])
+    category_id = chosen_id(update)
     chat_id = update.effective_chat.id
     subcategories = get_subcategories(category_id, chat_id)
 
@@ -80,15 +73,16 @@ async def top_category_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE
         context.user_data["category_names"].update({cat.id: cat.name for cat in subcategories})
         context.user_data["parent_category_id"] = category_id
 
-        keyboard = build_category_keyboard(subcategories, include_cancel=False)
         parent_name = context.user_data["category_names"][category_id]
-        keyboard.append(
-            [InlineKeyboardButton(f"Use '{parent_name}' directly", callback_data=USE_PARENT)]
-        )
-        keyboard.append([CANCEL_BUTTON])
+        use_parent = [
+            InlineKeyboardButton(f"Use '{parent_name}' directly", callback_data=USE_PARENT)
+        ]
+
         await update.callback_query.edit_message_text(
             "Choose a subcategory:",
-            reply_markup=InlineKeyboardMarkup(keyboard),
+            reply_markup=category_markup(
+                subcategories, CATEGORY_PREFIX, [CANCEL_BUTTON], extra_row=use_parent
+            ),
         )
         return CHOOSING_SUBCATEGORY
 
@@ -113,7 +107,7 @@ async def parent_category_used(update: Update, context: ContextTypes.DEFAULT_TYP
 async def subcategory_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.answer()
 
-    category_id = int(update.callback_query.data.split("_")[2])
+    category_id = chosen_id(update)
     context.user_data["category_id"] = category_id
     context.user_data["category_name"] = context.user_data["category_names"][category_id]
 
@@ -122,13 +116,9 @@ async def subcategory_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 
 async def amount_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text.strip().replace(",", ".")
-    amounts = [a.strip() for a in text.split("+")]
-    try:
-        amount = sum(Decimal(a) for a in amounts)
-        if not amount.is_finite() or amount <= 0:
-            raise ValueError
-    except (InvalidOperation, ValueError):
+    amount = parse_amount(update.message.text)
+
+    if amount is None:
         prompt = await update.message.reply_text(
             "Please enter a valid positive number (e.g. 12.50):",
             reply_markup=CANCEL_MARKUP,
@@ -185,23 +175,14 @@ async def description_skipped(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 
 def format_expense_summary(data, spent_at, code: str) -> str:
-    """Build the confirmation message, escaping anything the user typed.
-
-    Category names and descriptions are user supplied, so a name containing
-    `<` would otherwise make Telegram reject the whole message as malformed
-    HTML and the confirmation would never arrive.
-    """
-    category = html.escape(data.get("category_name") or "")
-    description = html.escape(data.get("description") or "N/A")
-    amount = html.escape(currency.format_amount(data["amount"], code))
-
-    return (
-        f"<b>Expense Recorded</b>\n"
-        f"----------------------------\n"
-        f"<b>Category:</b> {category}\n"
-        f"<b>Description:</b> {description}\n"
-        f"<b>Amount:</b> {amount}\n"
-        f"<b>Date:</b> {spent_at}"
+    """Build the confirmation, in the layout an expense is shown in anywhere."""
+    return expense_summary(
+        title="Expense Recorded",
+        category=data.get("category_name") or "",
+        description=data.get("description"),
+        amount=data["amount"],
+        code=code,
+        spent_at=spent_at,
     )
 
 
@@ -212,7 +193,7 @@ async def date_set_today(update: Update, context: ContextTypes.DEFAULT_TYPE):
     spent_at = clock.today()
     code = get_currency(update.effective_chat.id)
 
-    add_expense_to_db(
+    expense = add_expense_to_db(
         chat_id=update.effective_chat.id,
         category_id=data["category_id"],
         amount=data["amount"],
@@ -224,6 +205,7 @@ async def date_set_today(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.callback_query.edit_message_text(
         format_expense_summary(data, spent_at, code),
         parse_mode="HTML",
+        reply_markup=edit_markup(expense.id),
     )
 
     await clear_prompts(update, context, keep=update.callback_query.message.message_id)
@@ -245,7 +227,7 @@ async def date_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = context.user_data
     code = get_currency(update.effective_chat.id)
 
-    add_expense_to_db(
+    expense = add_expense_to_db(
         chat_id=update.effective_chat.id,
         category_id=data["category_id"],
         amount=data["amount"],
@@ -257,6 +239,7 @@ async def date_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         format_expense_summary(data, spent_at, code),
         parse_mode="HTML",
+        reply_markup=edit_markup(expense.id),
     )
 
     await clear_prompts(update, context)
@@ -283,11 +266,11 @@ add_expense_handler = ConversationHandler(
     entry_points=[CommandHandler("add_expense", add_expense)],
     states={
         CHOOSING_CATEGORY: [
-            CallbackQueryHandler(top_category_chosen, pattern=r"^exp_cat_\d+$"),
+            CallbackQueryHandler(top_category_chosen, pattern=rf"^{CATEGORY_PREFIX}_\d+$"),
             CallbackQueryHandler(cancel, pattern=f"^{CANCEL}$"),
         ],
         CHOOSING_SUBCATEGORY: [
-            CallbackQueryHandler(subcategory_chosen, pattern=r"^exp_cat_\d+$"),
+            CallbackQueryHandler(subcategory_chosen, pattern=rf"^{CATEGORY_PREFIX}_\d+$"),
             CallbackQueryHandler(parent_category_used, pattern=f"^{USE_PARENT}$"),
             CallbackQueryHandler(cancel, pattern=f"^{CANCEL}$"),
         ],

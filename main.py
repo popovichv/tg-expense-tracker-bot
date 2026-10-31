@@ -17,6 +17,8 @@ from handlers.category import add_category_handler
 from handlers.currency import set_currency_handler
 from handlers.expense import add_expense_handler
 from handlers.list_categories import list_categories_handler
+from handlers.manage_categories import manage_categories_handler
+from handlers.manage_expenses import manage_expenses_handler
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -69,11 +71,17 @@ async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE):
         pass
 
 
-async def stale_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handles /cancel and Cancel buttons left over from a finished conversation.
+async def stale_action(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handles /cancel and any button left over from a finished conversation.
 
-    Registered after the conversation handlers, so an active conversation always
-    cancels itself first and this only catches what nothing else claimed.
+    Registered after the conversation handlers, so an active conversation
+    always answers its own buttons first and this only catches what nothing
+    else claimed.
+
+    It takes every callback rather than the Cancel ones alone, because a
+    button nobody answers does not fail visibly: Telegram leaves it spinning
+    in the client until it times out, so a flow that has already ended looks
+    like a bot that has hung.
     """
     if update.callback_query:
         await update.callback_query.answer("This action is no longer active.")
@@ -97,7 +105,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id=chat_id, text=text)
 
 
-if __name__ == "__main__":
+def build_application():
+    """Assemble the bot with its handlers in the order they are to be tried.
+
+    Order decides who answers what: within a group the first handler that
+    claims an update gets it. The conversations come first, so a flow in
+    progress always answers its own buttons, and the stale catch-alls go
+    last, where they see only what no conversation claimed.
+    """
     application = ApplicationBuilder().token(BOT_TOKEN).build()
 
     application.add_handler(TypeHandler(Update, ensure_user), group=-1)
@@ -107,8 +122,15 @@ if __name__ == "__main__":
     application.add_handler(add_category_handler)
     application.add_handler(add_expense_handler)
     application.add_handler(list_categories_handler)
+    application.add_handler(manage_categories_handler)
+    application.add_handler(manage_expenses_handler)
     application.add_handler(set_currency_handler)
-    application.add_handler(CommandHandler("cancel", stale_cancel))
-    application.add_handler(CallbackQueryHandler(stale_cancel, pattern=r"^(cancel|exp_cancel)$"))
+    application.add_handler(CommandHandler("cancel", stale_action))
+    application.add_handler(CallbackQueryHandler(stale_action))
     application.add_error_handler(on_error)
-    application.run_polling()
+
+    return application
+
+
+if __name__ == "__main__":
+    build_application().run_polling()
