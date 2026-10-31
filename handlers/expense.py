@@ -1,4 +1,3 @@
-import html
 from datetime import date
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
@@ -13,8 +12,9 @@ from telegram.ext import (
 
 from handlers.pickers import category_markup, chosen_id
 from handlers.prompts import clear_prompts, track_prompt
+from handlers.summary import expense_summary
 from repo.user import get_currency
-from utils import clock, currency
+from utils import clock
 from utils.amounts import parse_amount
 from repo.category import get_top_level_categories, get_subcategories
 from repo.expense import add_expense as add_expense_to_db
@@ -174,23 +174,14 @@ async def description_skipped(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 
 def format_expense_summary(data, spent_at, code: str) -> str:
-    """Build the confirmation message, escaping anything the user typed.
-
-    Category names and descriptions are user supplied, so a name containing
-    `<` would otherwise make Telegram reject the whole message as malformed
-    HTML and the confirmation would never arrive.
-    """
-    category = html.escape(data.get("category_name") or "")
-    description = html.escape(data.get("description") or "N/A")
-    amount = html.escape(currency.format_amount(data["amount"], code))
-
-    return (
-        f"<b>Expense Recorded</b>\n"
-        f"----------------------------\n"
-        f"<b>Category:</b> {category}\n"
-        f"<b>Description:</b> {description}\n"
-        f"<b>Amount:</b> {amount}\n"
-        f"<b>Date:</b> {spent_at}"
+    """Build the confirmation, in the layout an expense is shown in anywhere."""
+    return expense_summary(
+        title="Expense Recorded",
+        category=data.get("category_name") or "",
+        description=data.get("description"),
+        amount=data["amount"],
+        code=code,
+        spent_at=spent_at,
     )
 
 
