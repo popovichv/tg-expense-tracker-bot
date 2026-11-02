@@ -1,9 +1,47 @@
-import html
+"""The category tree, sent as a rich message table.
+
+A plain-text tree of short names comes out as a tall narrow column, because
+Telegram sizes a bubble to its widest line. A rich message table (Bot API
+10.1) puts the subcategories beside their parent instead and lets the client
+size the columns.
+
+python-telegram-bot 22.8 targets Bot API 10.0 and has no wrapper for
+sendRichMessage yet, so the call goes through do_api_request, the library's
+own escape hatch for newer methods. Cell text travels as data rather than as
+markup, so a category named `<b>` or `a | b` needs no escaping.
+"""
 
 from telegram import Update
 from telegram.ext import CommandHandler, ContextTypes
 
 from repo.category import get_top_level_categories, get_subcategories
+
+SEPARATOR = ", "
+NO_SUBCATEGORIES = "—"
+
+
+def _categories_table(rows: list[tuple[str, list[str]]]) -> dict:
+    cells = [
+        [
+            {"text": "Category", "is_header": True},
+            {"text": "Subcategories", "is_header": True},
+        ]
+    ]
+
+    for name, subcategories in rows:
+        cells.append(
+            [
+                {"text": name},
+                {"text": SEPARATOR.join(subcategories) or NO_SUBCATEGORIES},
+            ]
+        )
+
+    return {
+        "type": "table",
+        "cells": cells,
+        "is_bordered": True,
+        "is_striped": True,
+    }
 
 
 async def list_categories(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -16,16 +54,22 @@ async def list_categories(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    lines = ["<b>Categories</b>", "----------------"]
+    rows = [
+        (category.name, [sub.name for sub in get_subcategories(category.id, chat_id)])
+        for category in top_level
+    ]
 
-    for category in top_level:
-        lines.append(f"<b>{html.escape(category.name)}</b>")
-        subcategories = get_subcategories(category.id, chat_id)
-        for sub in subcategories:
-            lines.append(f"- {html.escape(sub.name)}")
-        lines.append("")
-
-    await update.message.reply_text("\n".join(lines), parse_mode="HTML")
+    await context.bot.do_api_request(
+        "sendRichMessage",
+        api_kwargs={
+            "chat_id": chat_id,
+            "rich_message": {
+                "blocks": [
+                    _categories_table(rows),
+                ]
+            },
+        },
+    )
 
 
 list_categories_handler = CommandHandler("list_categories", list_categories)
