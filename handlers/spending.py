@@ -17,9 +17,7 @@ the money went, and that answer should be at the top.
 
 The month on display rides in the callback data of the buttons that move
 between months, so the report keeps no conversation state and its buttons
-still work after a restart. Both the send and the redraw go through
-do_api_request: python-telegram-bot 22.8 has no wrapper for sendRichMessage,
-and editMessageText's rich_message parameter is newer than the library too.
+still work after a restart.
 """
 
 from dataclasses import dataclass
@@ -29,6 +27,7 @@ from decimal import Decimal
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import CallbackQueryHandler, CommandHandler, ContextTypes
 
+from handlers.rich import edit_rich, send_rich
 from repo.category import get_all_categories
 from repo.expense import CategoryTotal, earliest_spent_at, totals_by_category
 from utils import clock, currency
@@ -245,27 +244,16 @@ async def _show(update: Update, context: ContextTypes.DEFAULT_TYPE, month: date)
     leaves one report in the chat rather than a new one per step.
     """
     chat_id = update.effective_chat.id
-    rich_message = {"blocks": _blocks(chat_id, month)}
+    blocks = _blocks(chat_id, month)
     markup = _markup(chat_id, month)
 
     if update.callback_query:
-        await context.bot.do_api_request(
-            "editMessageText",
-            api_kwargs={
-                "chat_id": chat_id,
-                "message_id": update.callback_query.message.message_id,
-                "rich_message": rich_message,
-                "reply_markup": (markup.to_dict() if markup else {"inline_keyboard": []}),
-            },
+        await edit_rich(
+            context, chat_id, update.callback_query.message.message_id, blocks, markup
         )
         return
 
-    api_kwargs = {"chat_id": chat_id, "rich_message": rich_message}
-
-    if markup is not None:
-        api_kwargs["reply_markup"] = markup.to_dict()
-
-    await context.bot.do_api_request("sendRichMessage", api_kwargs=api_kwargs)
+    await send_rich(context, chat_id, blocks, markup)
 
 
 async def spending(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

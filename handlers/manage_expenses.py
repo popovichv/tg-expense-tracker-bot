@@ -13,7 +13,8 @@ from telegram.ext import (
 
 from handlers.pickers import category_markup, chosen_id
 from handlers.prompts import clear_prompts, track_prompt
-from handlers.summary import expense_summary
+from handlers.rich import edit_rich, send_rich
+from handlers.summary import expense_blocks
 from repo.category import get_subcategories, get_top_level_categories
 from repo.expense import (
     count_for_chat,
@@ -78,6 +79,7 @@ CARD_MARKUP = InlineKeyboardMarkup(
 )
 
 GONE = "That expense no longer exists."
+UNDONE = "This cannot be undone."
 
 # The heading a card carries when it is simply being looked at; an edit
 # replaces it with what the edit did.
@@ -161,6 +163,26 @@ async def show(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str, ma
     track_prompt(context, prompt)
 
 
+async def show_rich(update: Update, context: ContextTypes.DEFAULT_TYPE, blocks, markup) -> None:
+    """Put a rich screen in front of the user, the way `show` does a plain one.
+
+    Same rule: a button press edits the message it came from, so the flow stays
+    in one place in the chat, while a typed message gets a fresh screen at the
+    bottom and the previous one tidied away.
+    """
+    chat_id = update.effective_chat.id
+
+    if update.callback_query:
+        await edit_rich(
+            context, chat_id, update.callback_query.message.message_id, blocks, markup
+        )
+        return
+
+    prompt = await send_rich(context, chat_id, blocks, markup)
+    await clear_prompts(update, context)
+    track_prompt(context, prompt)
+
+
 async def finish_with(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
     """Close the flow on the message the user is looking at, saying why."""
     if update.callback_query:
@@ -232,13 +254,13 @@ async def render_list(
     return BROWSING
 
 
-def card_text(expense, title: str = CARD_TITLE) -> str:
+def card_blocks(expense, title: str = CARD_TITLE) -> list[dict]:
     """One expense in full, in the layout it is shown in anywhere.
 
     The title doubles as the report of what just happened, so an edit needs
     no line of its own above the detail it is an edit to.
     """
-    return expense_summary(
+    return expense_blocks(
         title=title,
         category=expense.category_path,
         description=expense.description,
@@ -262,7 +284,7 @@ async def render_card(
     if expense is None:
         return await finish_with(update, context, GONE)
 
-    await show(update, context, card_text(expense, title), CARD_MARKUP)
+    await show_rich(update, context, card_blocks(expense, title), CARD_MARKUP)
     return VIEWING
 
 
@@ -294,11 +316,8 @@ async def open_expense(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["expense_id"] = expense.id
     context.user_data["page"] = 1
 
-    prompt = await context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text=card_text(expense),
-        reply_markup=CARD_MARKUP,
-        parse_mode="HTML",
+    prompt = await send_rich(
+        context, update.effective_chat.id, card_blocks(expense), CARD_MARKUP
     )
     track_prompt(context, prompt)
     return VIEWING
@@ -561,15 +580,13 @@ async def ask_delete(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if expense is None:
         return await finish_with(update, context, GONE)
 
-    lines = [
-        card_text(expense, title="Delete This Expense?"),
-        "",
-        "This cannot be undone.",
+    blocks = card_blocks(expense, title="Delete This Expense?") + [
+        {"type": "paragraph", "text": UNDONE}
     ]
 
     keyboard = [[InlineKeyboardButton("Delete", callback_data=CONFIRM)], [BACK_BUTTON]]
 
-    await show(update, context, "\n".join(lines), InlineKeyboardMarkup(keyboard))
+    await show_rich(update, context, blocks, InlineKeyboardMarkup(keyboard))
     return CONFIRMING_DELETE
 
 

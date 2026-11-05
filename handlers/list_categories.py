@@ -5,10 +5,8 @@ Telegram sizes a bubble to its widest line. A rich message table (Bot API
 10.1) puts the subcategories beside their parent instead and lets the client
 size the columns.
 
-python-telegram-bot 22.8 targets Bot API 10.0 and has no wrapper for
-sendRichMessage yet, so the call goes through do_api_request, the library's
-own escape hatch for newer methods. Cell text travels as data rather than as
-markup, so a category named `<b>` or `a | b` needs no escaping.
+Cell text travels as data rather than as markup, so a category named `<b>`
+or `a | b` needs no escaping.
 
 The title rides on the table's own caption: no InputRichBlock text block has
 an alignment field, so a `paragraph` cannot be centered, and the one block
@@ -18,6 +16,8 @@ normal text.
 
 from telegram import Update
 from telegram.ext import CommandHandler, ContextTypes
+
+from handlers.rich import send_rich
 
 from repo.category import get_top_level_categories, get_subcategories
 
@@ -66,17 +66,7 @@ async def list_categories(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for category in top_level
     ]
 
-    await context.bot.do_api_request(
-        "sendRichMessage",
-        api_kwargs={
-            "chat_id": chat_id,
-            "rich_message": {
-                "blocks": [
-                    _categories_table(rows),
-                ]
-            },
-        },
-    )
+    await send_rich(context, chat_id, [_categories_table(rows)])
 
 
 list_categories_handler = CommandHandler("list_categories", list_categories)

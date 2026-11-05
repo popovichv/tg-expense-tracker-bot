@@ -13,7 +13,8 @@ from telegram.ext import (
 from handlers.manage_expenses import edit_markup
 from handlers.pickers import category_markup, chosen_id
 from handlers.prompts import clear_prompts, track_prompt
-from handlers.summary import expense_summary
+from handlers.rich import edit_rich, send_rich
+from handlers.summary import expense_blocks
 from repo.user import get_currency
 from utils import clock
 from utils.amounts import parse_amount
@@ -174,9 +175,9 @@ async def description_skipped(update: Update, context: ContextTypes.DEFAULT_TYPE
     return CHOOSING_DATE
 
 
-def format_expense_summary(data, spent_at, code: str) -> str:
+def format_expense_blocks(data, spent_at, code: str) -> list[dict]:
     """Build the confirmation, in the layout an expense is shown in anywhere."""
-    return expense_summary(
+    return expense_blocks(
         title="Expense Recorded",
         category=data.get("category_name") or "",
         description=data.get("description"),
@@ -202,10 +203,12 @@ async def date_set_today(update: Update, context: ContextTypes.DEFAULT_TYPE):
         currency=code,
     )
 
-    await update.callback_query.edit_message_text(
-        format_expense_summary(data, spent_at, code),
-        parse_mode="HTML",
-        reply_markup=edit_markup(expense.id),
+    await edit_rich(
+        context,
+        update.effective_chat.id,
+        update.callback_query.message.message_id,
+        format_expense_blocks(data, spent_at, code),
+        edit_markup(expense.id),
     )
 
     await clear_prompts(update, context, keep=update.callback_query.message.message_id)
@@ -236,10 +239,11 @@ async def date_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
         currency=code,
     )
 
-    await update.message.reply_text(
-        format_expense_summary(data, spent_at, code),
-        parse_mode="HTML",
-        reply_markup=edit_markup(expense.id),
+    await send_rich(
+        context,
+        update.effective_chat.id,
+        format_expense_blocks(data, spent_at, code),
+        edit_markup(expense.id),
     )
 
     await clear_prompts(update, context)
