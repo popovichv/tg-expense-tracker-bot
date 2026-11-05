@@ -38,10 +38,10 @@ Each expense stores the currency it was recorded in, so `/set_currency` affects 
 
 ### Environment variables
 
-| Variable       | Description                                          |
-| -------------- | ---------------------------------------------------- |
-| `TG_TOKEN`     | Telegram bot token                                   |
-| `DATABASE_URL` | Full Postgres connection URL                         |
+| Variable       | Description                                                                  |
+| -------------- | ---------------------------------------------------------------------------- |
+| `TG_TOKEN`     | Telegram bot token                                                           |
+| `DATABASE_URL` | Full Postgres connection URL                                                 |
 | `TIMEZONE`     | IANA timezone for dates, e.g. `America/Toronto`. Optional, defaults to `UTC` |
 
 Telegram does not tell the bot where you are, so `TIMEZONE` is what "today" means when you log an expense. Leave it unset and the bot uses UTC, which will file an evening expense under tomorrow if you are west of it. A value the bot does not recognise stops it at startup instead of quietly falling back to UTC.
