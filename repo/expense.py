@@ -223,6 +223,54 @@ def delete_expense(expense_id: int, chat_id: int) -> ExpenseView | None:
         return view
 
 
+@dataclass
+class CategoryTotal:
+    """What one category holds over a period, in one currency.
+
+    The category is named by id alone: the caller already needs the whole tree
+    to place a subcategory under its parent, so it resolves names from there
+    rather than having them repeated on every row.
+    """
+
+    category_id: int
+    currency: str
+    total: Decimal
+
+
+def totals_by_category(chat_id: int, start: date, end: date) -> list[CategoryTotal]:
+    """Spending per category between two dates, inclusive, split by currency.
+
+    Split because an expense keeps the currency it was recorded in, so a month
+    can hold several and they cannot be added together. A category with
+    nothing in the period is absent rather than zero, which is what lets a
+    report show only what was actually spent on.
+    """
+    with SessionLocal() as session:
+        rows = session.execute(
+            select(Expense.category_id, Expense.currency, func.sum(Expense.amount))
+            .where(
+                Expense.chat_id == chat_id,
+                Expense.spent_at >= start,
+                Expense.spent_at <= end,
+            )
+            .group_by(Expense.category_id, Expense.currency)
+        )
+        return [CategoryTotal(*row) for row in rows]
+
+
+def earliest_spent_at(chat_id: int) -> date | None:
+    """The date of this chat's oldest expense, or None if it has logged none.
+
+    Bounds how far back a report can be scrolled, so walking backwards stops
+    at the first month that has anything in it instead of going on forever.
+    """
+    with SessionLocal() as session:
+        result = session.execute(
+            select(func.min(Expense.spent_at)).where(Expense.chat_id == chat_id)
+        )
+        return result.scalar_one()
+
+
 def count_in_session(session, category_ids: Sequence[int], chat_id: int) -> int:
     """How many expenses sit in these categories, read inside a caller's transaction."""
     if not category_ids:

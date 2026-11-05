@@ -9,6 +9,11 @@ python-telegram-bot 22.8 targets Bot API 10.0 and has no wrapper for
 sendRichMessage yet, so the call goes through do_api_request, the library's
 own escape hatch for newer methods. Cell text travels as data rather than as
 markup, so a category named `<b>` or `a | b` needs no escaping.
+
+The title rides on the table's own caption: no InputRichBlock text block has
+an alignment field, so a `paragraph` cannot be centered, and the one block
+that centers its text, `pullquote`, carries quotation styling instead of
+normal text.
 """
 
 from telegram import Update
@@ -16,6 +21,7 @@ from telegram.ext import CommandHandler, ContextTypes
 
 from repo.category import get_top_level_categories, get_subcategories
 
+TITLE = "Your Categories"
 SEPARATOR = ", "
 NO_SUBCATEGORIES = "—"
 
@@ -39,6 +45,7 @@ def _categories_table(rows: list[tuple[str, list[str]]]) -> dict:
     return {
         "type": "table",
         "cells": cells,
+        "caption": {"type": "bold", "text": TITLE},
         "is_bordered": True,
         "is_striped": True,
     }

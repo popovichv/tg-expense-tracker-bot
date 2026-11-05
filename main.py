@@ -19,6 +19,7 @@ from handlers.expense import add_expense_handler
 from handlers.list_categories import list_categories_handler
 from handlers.manage_categories import manage_categories_handler
 from handlers.manage_expenses import manage_expenses_handler
+from handlers.spending import spending_handler, spending_month_handler
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -125,6 +126,8 @@ def build_application():
     application.add_handler(manage_categories_handler)
     application.add_handler(manage_expenses_handler)
     application.add_handler(set_currency_handler)
+    application.add_handler(spending_handler)
+    application.add_handler(spending_month_handler)
     application.add_handler(CommandHandler("cancel", stale_action))
     application.add_handler(CallbackQueryHandler(stale_action))
     application.add_error_handler(on_error)

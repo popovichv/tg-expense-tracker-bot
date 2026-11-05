@@ -74,6 +74,21 @@ def get_top_level_categories(chat_id: int) -> list[Category]:
         return result.scalars().all()
 
 
+def get_all_categories(chat_id: int) -> list[Category]:
+    """Every category this chat has, parents and subcategories together.
+
+    One read for callers that need to resolve a name or a parent anywhere in
+    the tree, rather than a query per level.
+    """
+    with SessionLocal() as session:
+        result = session.execute(
+            select(Category)
+            .where(Category.chat_id == chat_id)
+            .order_by(CATCH_ALL_LAST, Category.name)
+        )
+        return list(result.scalars().all())
+
+
 def get_subcategories(parent_id: int, chat_id: int) -> list[Category]:
     with SessionLocal() as session:
         result = session.execute(

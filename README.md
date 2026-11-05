@@ -17,6 +17,7 @@ A Telegram bot for tracking personal expenses, built with python-telegram-bot an
 - `/manage_categories`: rename or delete a category or subcategory
 - `/add_expense`: log an expense with category, amount, optional description, and date
 - `/manage_expenses`: browse your expenses and edit or delete one
+- `/spending`: one month's spending grouped by category, with buttons to step through earlier months
 - `/set_currency`: set the currency new expenses are recorded in (defaults to USD)
 - `/cancel`: abandon whichever flow is in progress
 
@@ -34,14 +35,18 @@ The card uses the same layout as the confirmation you get after adding an expens
 
 Each expense stores the currency it was recorded in, so `/set_currency` affects new expenses only and never rewrites what is already logged. The symbol goes before or after the amount by the convention for that currency: `$12.50`, but `12.50 zł`.
 
+`/spending` totals one month by category. A top-level category's figure is its whole branch: what was logged against it directly plus everything in its subcategories, since that is what a category total means to the person reading it. Where a parent holds both, the direct part gets a row of its own, so the subcategory rows and the figure above them visibly add up. Rows run biggest first, which is the one place the bot departs from the alphabetical order its pickers use, because a report is read to find where the money went.
+
+The report opens on the current month and the buttons move one month at a time, back as far as the oldest expense and forward no further than the current month. The month on display rides in the callback data rather than in conversation state, so the buttons still work after a restart. Because an expense keeps the currency it was recorded in, nothing is added across currencies: a month holding more than one gets a table each, captioned with its code.
+
 ## Setup
 
 ### Environment variables
 
-| Variable       | Description                                          |
-| -------------- | ---------------------------------------------------- |
-| `TG_TOKEN`     | Telegram bot token                                   |
-| `DATABASE_URL` | Full Postgres connection URL                         |
+| Variable       | Description                                                                  |
+| -------------- | ---------------------------------------------------------------------------- |
+| `TG_TOKEN`     | Telegram bot token                                                           |
+| `DATABASE_URL` | Full Postgres connection URL                                                 |
 | `TIMEZONE`     | IANA timezone for dates, e.g. `America/Toronto`. Optional, defaults to `UTC` |
 
 Telegram does not tell the bot where you are, so `TIMEZONE` is what "today" means when you log an expense. Leave it unset and the bot uses UTC, which will file an evening expense under tomorrow if you are west of it. A value the bot does not recognise stops it at startup instead of quietly falling back to UTC.
