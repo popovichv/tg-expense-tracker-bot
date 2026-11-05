@@ -2,9 +2,14 @@
 
 One layout in one place, so the confirmation an expense is added with and the
 card it is edited on cannot drift apart.
+
+A rich message table, which means the escaping this module used to do is gone
+rather than merely tidied away: cell text travels as data, so a category or a
+description containing `<` arrives as itself instead of making Telegram
+reject the whole message as malformed HTML. The dashed divider went with it,
+the table drawing its own rules.
 """
 
-import html
 from datetime import date
 from decimal import Decimal
 
@@ -12,32 +17,67 @@ from utils import currency
 
 MISSING_DESCRIPTION = "N/A"
 
-DIVIDER = "----------------------------"
+
+def long_date(value: date) -> str:
+    """A date as it is written out, rather than as it is stored.
+
+    Assembled from the parts rather than with a format directive, because the
+    one that drops the padding zero from the day is `%-d` on Linux and `%#d`
+    on Windows, and this bot is developed on one and deployed to the other.
+    """
+    return f"{value:%B} {value.day}, {value.year}"
 
 
-def expense_summary(
+def expense_fields(
+    category: str,
+    description: str | None,
+    amount: Decimal,
+    code: str,
+    spent_at: date,
+) -> list[tuple[str, str]]:
+    """One expense as label and value, in the order it is always shown in."""
+    return [
+        ("Category", category),
+        ("Description", description or MISSING_DESCRIPTION),
+        ("Amount", currency.format_amount(amount, code)),
+        ("Date", long_date(spent_at)),
+    ]
+
+
+def expense_blocks(
     title: str,
     category: str,
     description: str | None,
     amount: Decimal,
     code: str,
     spent_at: date,
-) -> str:
-    """One expense in full, under a heading that says why it is being shown.
+) -> list[dict]:
+    """One expense in full, captioned with what is being shown and why.
 
-    Everything the user supplied is escaped: a category or description
-    containing `<` would otherwise make Telegram reject the whole message as
-    malformed HTML, and the message would simply never arrive.
+    The labels carry their own bold rather than being header cells. A header
+    cell takes a shade of its own, which left the stripe covering only the
+    half of each row that was not a label; as ordinary cells, every row is
+    striped across its whole width.
 
-    The title carries what just happened -- the expense was recorded, or its
+    This table has no header row for the same reason /spending and
+    /list_categories do: there is nothing to label, the fields being their own
+    labels down the side.
+
+    The title says what just happened -- the expense was recorded, or its
     amount was changed -- so a result needs no line of its own above the
     detail it is a result about.
     """
-    return (
-        f"<b>{html.escape(title)}</b>\n"
-        f"{DIVIDER}\n"
-        f"<b>Category:</b> {html.escape(category)}\n"
-        f"<b>Description:</b> {html.escape(description or MISSING_DESCRIPTION)}\n"
-        f"<b>Amount:</b> {html.escape(currency.format_amount(amount, code))}\n"
-        f"<b>Date:</b> {spent_at}"
-    )
+    cells = [
+        [{"text": {"type": "bold", "text": label}}, {"text": value}]
+        for label, value in expense_fields(category, description, amount, code, spent_at)
+    ]
+
+    return [
+        {
+            "type": "table",
+            "cells": cells,
+            "caption": {"type": "bold", "text": title},
+            "is_bordered": True,
+            "is_striped": True,
+        }
+    ]

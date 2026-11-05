@@ -19,6 +19,7 @@ from handlers.expense import add_expense_handler
 from handlers.list_categories import list_categories_handler
 from handlers.manage_categories import manage_categories_handler
 from handlers.manage_expenses import manage_expenses_handler
+from handlers.quick_expense import quick_expense_handler
 from handlers.spending import spending_handler, spending_month_handler
 
 logging.basicConfig(
@@ -97,11 +98,14 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if context.chat_data.pop("user_created", False):
         text = (
-            f"Hi {name}! You have been saved in the database with chat ID: {chat_id}\n"
-            "I have added some starter categories — see /list_categories."
+            f"Hi {name}! I keep track of what you spend.\n\n"
+            "To log an expense, send the amount and a note:\n"
+            "6.50 coffee\n\n"
+            "I'll ask which category it goes in. Starter categories are "
+            "ready — /list_categories to see them."
         )
     else:
-        text = f"Welcome back, {name}! You are already registered."
+        text = f"Welcome back, {name}! /spending shows this month by category."
 
     await context.bot.send_message(chat_id=chat_id, text=text)
 
@@ -128,6 +132,7 @@ def build_application():
     application.add_handler(set_currency_handler)
     application.add_handler(spending_handler)
     application.add_handler(spending_month_handler)
+    application.add_handler(quick_expense_handler)
     application.add_handler(CommandHandler("cancel", stale_action))
     application.add_handler(CallbackQueryHandler(stale_action))
     application.add_error_handler(on_error)

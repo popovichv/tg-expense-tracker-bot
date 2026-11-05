@@ -26,3 +26,31 @@ def parse_amount(text: str) -> Decimal | None:
         return None
 
     return amount
+
+
+def split_amount(text: str) -> tuple[Decimal, str | None] | None:
+    """Read a line like "12.50 coffee" as an amount and what it was spent on.
+
+    The amount is as much of the start of the line as still reads as one, so a
+    sum written with `+` is kept whole and only what follows it becomes the
+    description -- "10 + 5 coffee" is 15 spent on coffee, not 10 spent on
+    "+ 5 coffee". Taking the longest match rather than the first is what makes
+    that work, since "10" parses on its own too.
+
+    None means the line does not begin with a usable amount at all, which is
+    the caller's cue to say so rather than to log anything.
+    """
+    tokens = text.split()
+    amount = None
+    taken = 0
+
+    for count in range(1, len(tokens) + 1):
+        candidate = parse_amount(" ".join(tokens[:count]))
+
+        if candidate is not None:
+            amount, taken = candidate, count
+
+    if amount is None:
+        return None
+
+    return amount, " ".join(tokens[taken:]) or None
