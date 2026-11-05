@@ -29,9 +29,11 @@ from repo.expense import (
 from utils import clock, currency
 from utils.amounts import parse_amount
 
-# Enough rows to cover a few days of spending without the keyboard needing a
-# scroll of its own.
-PER_PAGE = 6
+# Six was what a keyboard of one button per expense could hold before it
+# needed a scroll of its own. The rows are a table now and the keyboard is
+# three buttons whatever the page holds, so the limit is how much of a list
+# reads comfortably in one message rather than anything structural.
+PER_PAGE = 12
 
 # Callbacks
 EXPENSE_PREFIX = "mex_exp"
@@ -81,6 +83,12 @@ CARD_MARKUP = InlineKeyboardMarkup(
 GONE = "That expense no longer exists."
 UNDONE = "This cannot be undone."
 
+LIST_CAPTION = "Expenses for {span}"
+PAGE_OF = "page {page} of {pages}"
+DATE_HEADER = "Date"
+AMOUNT_HEADER = "Amount"
+DESCRIPTION_HEADER = "Description"
+
 # The heading a card carries when it is simply being looked at; an edit
 # replaces it with what the edit did.
 CARD_TITLE = "Expense"
@@ -98,11 +106,6 @@ def edit_markup(expense_id: int) -> InlineKeyboardMarkup:
         [[InlineKeyboardButton("Edit", callback_data=f"{OPEN_PREFIX}_{expense_id}")]]
     )
 
-# How much of a description a button can carry before the label stops being
-# readable. Telegram elides what overflows, which loses the date and amount
-# at the far end rather than the tail of a long note.
-LABEL_DETAIL = 30
-
 # States
 BROWSING = 1
 VIEWING = 2
@@ -115,8 +118,12 @@ CONFIRMING_DELETE = 8
 
 
 def short_date(value: date) -> str:
-    """A date as it reads in a list, without a padding zero on the day."""
-    return f"{value.day} {value:%b}"
+    """A date as it reads in a list, without a padding zero on the day.
+
+    Month first, matching the long form the expense card is dated with, so the
+    two read the same way round wherever a date turns up.
+    """
+    return f"{value:%b} {value.day}"
 
 
 def money(expense) -> str:
@@ -124,18 +131,100 @@ def money(expense) -> str:
     return currency.format_amount(expense.amount, expense.currency)
 
 
-def row_label(expense) -> str:
-    """One expense as a button.
+def span_of(expenses) -> str:
+    """The stretch of dates a page covers, as its caption names it."""
+    newest = short_date(expenses[0].spent_at)
+    oldest = short_date(expenses[-1].spent_at)
 
-    Button text is not parsed as HTML, so nothing here is escaped: a category
-    called "Food & Drink" has to reach the user with its ampersand intact.
+    return newest if newest == oldest else f"{oldest} - {newest}"
+
+
+def page_total(expenses) -> str:
+    """What the page comes to, or nothing where that would add currencies.
+
+    An expense keeps the currency it was recorded in, so a page holding more
+    than one has no single total to show, and says nothing rather than
+    something wrong.
     """
-    detail = expense.description or expense.category_name
+    codes = {expense.currency for expense in expenses}
 
-    if len(detail) > LABEL_DETAIL:
-        detail = f"{detail[: LABEL_DETAIL - 1].rstrip()}..."
+    if len(codes) != 1:
+        return ""
 
-    return f"{short_date(expense.spent_at)} · {money(expense)} · {detail}"
+    return currency.format_amount(
+        sum(expense.amount for expense in expenses), codes.pop()
+    )
+
+
+def open_button(expense) -> dict:
+    """The row's description, as the control that opens it.
+
+    A callback button inside the cell, styled as a link so it reads as part of
+    the table rather than sitting on it. The row is opened by tapping what
+    identifies it, instead of by a button underneath repeating the same three
+    fields -- which is what forced the description to be cut short, a button
+    label being elided from the end and taking the date and amount with it.
+    """
+    return {
+        "type": "button",
+        "button": {
+            "text": expense.description or expense.category_name,
+            "callback_data": f"{EXPENSE_PREFIX}_{expense.id}",
+            "style": "link",
+        },
+    }
+
+
+def list_blocks(expenses, page: int, pages: int, status: str | None) -> list[dict]:
+    """A page of expenses as a table, with where it sits in the list beneath.
+
+    A status line from whatever just happened goes above the table rather than
+    into it, since it is about the list and not a row of it.
+
+    A cell with nothing to say leaves its text out altogether rather than
+    carrying an empty one, that being what the API documents for a blank cell.
+    """
+    cells = [
+        [
+            {"text": DATE_HEADER, "is_header": True},
+            {"text": AMOUNT_HEADER, "is_header": True, "align": "right"},
+            {"text": DESCRIPTION_HEADER, "is_header": True},
+        ]
+    ]
+
+    for expense in expenses:
+        cells.append(
+            [
+                {"text": short_date(expense.spent_at)},
+                {"text": money(expense), "align": "right"},
+                {"text": open_button(expense)},
+            ]
+        )
+
+    total = page_total(expenses)
+    total_cell = {"align": "right"}
+
+    if total:
+        total_cell["text"] = {"type": "bold", "text": total}
+
+    cells.append(
+        [
+            {},
+            total_cell,
+            {"text": PAGE_OF.format(page=page, pages=pages)},
+        ]
+    )
+
+    table = {
+        "type": "table",
+        "cells": cells,
+        "caption": {"type": "bold", "text": LIST_CAPTION.format(span=span_of(expenses))},
+        "is_bordered": True,
+        "is_striped": True,
+        "is_compact": True,
+    }
+
+    return [{"type": "paragraph", "text": status}, table] if status else [table]
 
 
 async def show(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str, markup) -> None:
@@ -226,31 +315,23 @@ async def render_list(
 
     context.user_data["page"] = page
 
-    newest = short_date(expenses[0].spent_at)
-    oldest = short_date(expenses[-1].spent_at)
-    span = newest if newest == oldest else f"{oldest} - {newest}"
-
-    lines = [f"<b>Expenses</b> · {span}", f"page {page} of {pages}"]
-
-    if status:
-        lines = [f"<i>{html.escape(status)}</i>", ""] + lines
-
-    rows = [
-        [InlineKeyboardButton(row_label(expense), callback_data=f"{EXPENSE_PREFIX}_{expense.id}")]
-        for expense in expenses
-    ]
-
     navigation = []
+
     if page < pages:
         navigation.append(InlineKeyboardButton("Older", callback_data=OLDER))
+
     if page > 1:
         navigation.append(InlineKeyboardButton("Newer", callback_data=NEWER))
-    if navigation:
-        rows.append(navigation)
 
+    rows = [navigation] if navigation else []
     rows.append([CANCEL_BUTTON])
 
-    await show(update, context, "\n".join(lines), InlineKeyboardMarkup(rows))
+    await show_rich(
+        update,
+        context,
+        list_blocks(expenses, page, pages, status),
+        InlineKeyboardMarkup(rows),
+    )
     return BROWSING
 
 
