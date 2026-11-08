@@ -14,7 +14,6 @@ from telegram.ext import (
 from repo.user import get_or_create_user
 
 from handlers.category import add_category_handler
-from handlers.currency import set_currency_handler
 from handlers.expense import add_expense_handler
 from handlers.list_categories import list_categories_handler
 from handlers.manage_categories import manage_categories_handler
@@ -129,7 +128,6 @@ def build_application():
     application.add_handler(list_categories_handler)
     application.add_handler(manage_categories_handler)
     application.add_handler(manage_expenses_handler)
-    application.add_handler(set_currency_handler)
     application.add_handler(spending_handler)
     application.add_handler(spending_month_handler)
     application.add_handler(quick_expense_handler)

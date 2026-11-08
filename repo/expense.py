@@ -7,7 +7,6 @@ from sqlalchemy import func, select, update
 from sqlalchemy.orm import aliased
 
 from database import SessionLocal
-from utils.currency import DEFAULT_CURRENCY
 from models.models import Category, Expense
 
 # A subcategory's parent, for the breadcrumb an expense is shown with. Aliased
@@ -32,7 +31,6 @@ class ExpenseView:
     amount: Decimal
     description: str | None
     spent_at: date
-    currency: str
     category_id: int
     category_name: str
     parent_name: str | None
@@ -53,7 +51,6 @@ VIEW_COLUMNS = (
     Expense.amount,
     Expense.description,
     Expense.spent_at,
-    Expense.currency,
     Expense.category_id,
     Category.name,
     ParentCategory.name,
@@ -96,7 +93,6 @@ def add_expense(
     amount: Decimal,
     description: str | None,
     spent_at: date,
-    currency: str = DEFAULT_CURRENCY,
 ) -> Expense:
     with SessionLocal() as session:
         expense = Expense(
@@ -105,7 +101,6 @@ def add_expense(
             amount=amount,
             description=description,
             spent_at=spent_at,
-            currency=currency,
         )
         session.add(expense)
         session.commit()
@@ -167,7 +162,7 @@ def _update(expense_id: int, chat_id: int, **values) -> ExpenseView | None:
 
 
 def set_amount(expense_id: int, chat_id: int, amount: Decimal) -> ExpenseView | None:
-    """Correct an amount, leaving the currency it was recorded in alone."""
+    """Correct an amount."""
     return _update(expense_id, chat_id, amount=amount)
 
 
@@ -225,7 +220,7 @@ def delete_expense(expense_id: int, chat_id: int) -> ExpenseView | None:
 
 @dataclass
 class CategoryTotal:
-    """What one category holds over a period, in one currency.
+    """What one category holds over a period.
 
     The category is named by id alone: the caller already needs the whole tree
     to place a subcategory under its parent, so it resolves names from there
@@ -233,27 +228,24 @@ class CategoryTotal:
     """
 
     category_id: int
-    currency: str
     total: Decimal
 
 
 def totals_by_category(chat_id: int, start: date, end: date) -> list[CategoryTotal]:
-    """Spending per category between two dates, inclusive, split by currency.
+    """Spending per category between two dates, inclusive.
 
-    Split because an expense keeps the currency it was recorded in, so a month
-    can hold several and they cannot be added together. A category with
-    nothing in the period is absent rather than zero, which is what lets a
-    report show only what was actually spent on.
+    A category with nothing in the period is absent rather than zero, which
+    is what lets a report show only what was actually spent on.
     """
     with SessionLocal() as session:
         rows = session.execute(
-            select(Expense.category_id, Expense.currency, func.sum(Expense.amount))
+            select(Expense.category_id, func.sum(Expense.amount))
             .where(
                 Expense.chat_id == chat_id,
                 Expense.spent_at >= start,
                 Expense.spent_at <= end,
             )
-            .group_by(Expense.category_id, Expense.currency)
+            .group_by(Expense.category_id)
         )
         return [CategoryTotal(*row) for row in rows]
 
