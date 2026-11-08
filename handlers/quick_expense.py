@@ -36,8 +36,8 @@ from handlers.rich import edit_rich
 from handlers.summary import MISSING_DESCRIPTION, long_date
 from repo.category import get_subcategories, get_top_level_categories
 from repo.expense import add_expense as add_expense_to_db
-from repo.user import get_currency
-from utils import clock, currency
+from utils import clock
+from utils.money import format_amount
 from utils.amounts import split_amount
 
 TRIGGER = r"^\s*\d"
@@ -91,8 +91,7 @@ def _screen(context: ContextTypes.DEFAULT_TYPE, chat_id: int, question: str) -> 
     screen and the confirmation that replaces it read as one thing rather than
     two.
     """
-    code = get_currency(chat_id)
-    amount = currency.format_amount(context.user_data["amount"], code)
+    amount = format_amount(context.user_data["amount"])
     description = context.user_data.get("description") or MISSING_DESCRIPTION
 
     return (
@@ -147,7 +146,6 @@ async def _log(update: Update, context: ContextTypes.DEFAULT_TYPE, category_id: 
     data["category_name"] = data["category_names"][category_id]
 
     spent_at = clock.today()
-    code = get_currency(chat_id)
 
     expense = add_expense_to_db(
         chat_id=chat_id,
@@ -155,14 +153,13 @@ async def _log(update: Update, context: ContextTypes.DEFAULT_TYPE, category_id: 
         amount=data["amount"],
         description=data.get("description"),
         spent_at=spent_at,
-        currency=code,
     )
 
     await edit_rich(
         context,
         chat_id,
         update.callback_query.message.message_id,
-        format_expense_blocks(data, spent_at, code),
+        format_expense_blocks(data, spent_at),
         edit_markup(expense.id),
     )
 

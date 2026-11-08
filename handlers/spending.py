@@ -6,11 +6,6 @@ total means to the person reading it. Where a parent holds both, the direct
 part gets a row of its own, so the subcategory rows and the parent figure
 visibly add up instead of leaving a gap the reader has to account for.
 
-Nothing is ever added across currencies, because an expense keeps the one it
-was recorded in and /set_currency changes only what is logged afterwards. A
-month holding more than one currency gets a table each, and the caption names
-the code so the two cannot be mistaken for one another.
-
 Rows run biggest first rather than alphabetically, which is the one place this
 bot departs from the ordering its pickers use: a report is read to find where
 the money went, and that answer should be at the top.
@@ -30,7 +25,8 @@ from telegram.ext import CallbackQueryHandler, CommandHandler, ContextTypes
 from handlers.rich import edit_rich, send_rich
 from repo.category import get_all_categories
 from repo.expense import CategoryTotal, earliest_spent_at, totals_by_category
-from utils import clock, currency
+from utils import clock
+from utils.money import format_amount
 
 MONTH_PREFIX = "spend_month"
 MONTH_FORMAT = "%Y-%m"
@@ -63,7 +59,7 @@ class Row:
 
 
 def _branch_rows(amounts: dict[int, Decimal], categories: list) -> list[Row]:
-    """One currency's categories as table rows, biggest branch first.
+    """The categories as table rows, biggest branch first.
 
     A category with nothing in the period is left out entirely, parents
     included: the report says where money went, so a row reading zero is noise.
@@ -105,22 +101,11 @@ def _branch_rows(amounts: dict[int, Decimal], categories: list) -> list[Row]:
     return rows
 
 
-def _tables(totals: list[CategoryTotal], categories: list) -> list[tuple[str, list[Row], Decimal]]:
-    """A currency, its rows and its grand total, for each currency in the period."""
-    amounts: dict[str, dict[int, Decimal]] = {}
-    for total in totals:
-        amounts.setdefault(total.currency, {})[total.category_id] = total.total
+def _rows(totals: list[CategoryTotal], categories: list) -> list[Row]:
+    """The period's categories as table rows."""
+    amounts = {total.category_id: total.total for total in totals}
 
-    tables = []
-    for code, per_category in amounts.items():
-        rows = _branch_rows(per_category, categories)
-
-        if rows:
-            grand = sum((row.amount for row in rows if row.is_branch), ZERO)
-            tables.append((code, rows, grand))
-
-    tables.sort(key=lambda item: item[2], reverse=True)
-    return tables
+    return _branch_rows(amounts, categories)
 
 
 def _emphasised(text: str, bold: bool):
@@ -132,8 +117,8 @@ def _emphasised(text: str, bold: bool):
     return {"type": "bold", "text": text} if bold else text
 
 
-def _table_block(rows: list[Row], code: str, caption: str, grand: Decimal) -> dict:
-    """One currency's rows as a table, under a caption naming the month.
+def _table_block(rows: list[Row], caption: str, grand: Decimal) -> dict:
+    """The rows as a table, under a caption naming the month.
 
     Cell text travels as data rather than as markup, so a category called
     `<b>` needs no escaping on the way out.
@@ -150,7 +135,7 @@ def _table_block(rows: list[Row], code: str, caption: str, grand: Decimal) -> di
             [
                 {"text": _emphasised(row.label, row.is_branch)},
                 {
-                    "text": _emphasised(currency.format_amount(row.amount, code), row.is_branch),
+                    "text": _emphasised(format_amount(row.amount), row.is_branch),
                     "align": "right",
                 },
             ]
@@ -160,7 +145,7 @@ def _table_block(rows: list[Row], code: str, caption: str, grand: Decimal) -> di
         [
             {"text": {"type": "bold", "text": TOTAL_LABEL}},
             {
-                "text": {"type": "bold", "text": currency.format_amount(grand, code)},
+                "text": {"type": "bold", "text": format_amount(grand)},
                 "align": "right",
             },
         ]
@@ -191,17 +176,14 @@ def _blocks(chat_id: int, month: date) -> list[dict]:
     """The month's report, or a line saying it holds nothing."""
     totals = totals_by_category(chat_id, month, clock.month_end(month))
     label = _month_label(month)
-    tables = _tables(totals, get_all_categories(chat_id)) if totals else []
+    rows = _rows(totals, get_all_categories(chat_id)) if totals else []
 
-    if not tables:
+    if not rows:
         return [{"type": "paragraph", "text": EMPTY.format(month=label)}]
 
-    named = len(tables) > 1
+    grand = sum((row.amount for row in rows if row.is_branch), ZERO)
 
-    return [
-        _table_block(rows, code, f"{label} · {code}" if named else label, grand)
-        for code, rows, grand in tables
-    ]
+    return [_table_block(rows, label, grand)]
 
 
 def _markup(chat_id: int, month: date) -> InlineKeyboardMarkup | None:

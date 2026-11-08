@@ -1,11 +1,10 @@
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, MetaData, Numeric, String, func
+from sqlalchemy import BigInteger, DateTime, ForeignKey, MetaData, Numeric, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from utils import clock
-from utils.currency import DEFAULT_CURRENCY
 
 # Named constraints, so a migration that has to alter or drop one has a stable
 # identifier to reference instead of a name the database invented.
@@ -29,9 +28,6 @@ class User(Base):
     # autoincrement sequence.
     chat_id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False)
     name: Mapped[str]
-    currency: Mapped[str] = mapped_column(
-        String(3), default=DEFAULT_CURRENCY, server_default=DEFAULT_CURRENCY
-    )
 
 
 class Category(Base):
@@ -52,7 +48,6 @@ class Expense(Base):
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2))
     description: Mapped[str | None]
     spent_at: Mapped[date] = mapped_column(default=clock.today)
-    currency: Mapped[str] = mapped_column(default=DEFAULT_CURRENCY)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

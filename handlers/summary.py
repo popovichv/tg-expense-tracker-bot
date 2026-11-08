@@ -13,7 +13,7 @@ the table drawing its own rules.
 from datetime import date
 from decimal import Decimal
 
-from utils import currency
+from utils.money import format_amount
 
 MISSING_DESCRIPTION = "N/A"
 
@@ -32,14 +32,13 @@ def expense_fields(
     category: str,
     description: str | None,
     amount: Decimal,
-    code: str,
     spent_at: date,
 ) -> list[tuple[str, str]]:
     """One expense as label and value, in the order it is always shown in."""
     return [
         ("Category", category),
         ("Description", description or MISSING_DESCRIPTION),
-        ("Amount", currency.format_amount(amount, code)),
+        ("Amount", format_amount(amount)),
         ("Date", long_date(spent_at)),
     ]
 
@@ -49,7 +48,6 @@ def expense_blocks(
     category: str,
     description: str | None,
     amount: Decimal,
-    code: str,
     spent_at: date,
 ) -> list[dict]:
     """One expense in full, captioned with what is being shown and why.
@@ -69,7 +67,7 @@ def expense_blocks(
     """
     cells = [
         [{"text": {"type": "bold", "text": label}}, {"text": value}]
-        for label, value in expense_fields(category, description, amount, code, spent_at)
+        for label, value in expense_fields(category, description, amount, spent_at)
     ]
 
     return [

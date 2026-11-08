@@ -15,7 +15,6 @@ from handlers.pickers import category_markup, chosen_id
 from handlers.prompts import clear_prompts, track_prompt
 from handlers.rich import edit_rich, send_rich
 from handlers.summary import expense_blocks
-from repo.user import get_currency
 from utils import clock
 from utils.amounts import parse_amount
 from repo.category import get_top_level_categories, get_subcategories
@@ -175,14 +174,13 @@ async def description_skipped(update: Update, context: ContextTypes.DEFAULT_TYPE
     return CHOOSING_DATE
 
 
-def format_expense_blocks(data, spent_at, code: str) -> list[dict]:
+def format_expense_blocks(data, spent_at) -> list[dict]:
     """Build the confirmation, in the layout an expense is shown in anywhere."""
     return expense_blocks(
         title="Expense Recorded",
         category=data.get("category_name") or "",
         description=data.get("description"),
         amount=data["amount"],
-        code=code,
         spent_at=spent_at,
     )
 
@@ -192,7 +190,6 @@ async def date_set_today(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     data = context.user_data
     spent_at = clock.today()
-    code = get_currency(update.effective_chat.id)
 
     expense = add_expense_to_db(
         chat_id=update.effective_chat.id,
@@ -200,14 +197,13 @@ async def date_set_today(update: Update, context: ContextTypes.DEFAULT_TYPE):
         amount=data["amount"],
         description=data.get("description"),
         spent_at=spent_at,
-        currency=code,
     )
 
     await edit_rich(
         context,
         update.effective_chat.id,
         update.callback_query.message.message_id,
-        format_expense_blocks(data, spent_at, code),
+        format_expense_blocks(data, spent_at),
         edit_markup(expense.id),
     )
 
@@ -228,7 +224,6 @@ async def date_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return CHOOSING_DATE
 
     data = context.user_data
-    code = get_currency(update.effective_chat.id)
 
     expense = add_expense_to_db(
         chat_id=update.effective_chat.id,
@@ -236,13 +231,12 @@ async def date_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
         amount=data["amount"],
         description=data.get("description"),
         spent_at=spent_at,
-        currency=code,
     )
 
     await send_rich(
         context,
         update.effective_chat.id,
-        format_expense_blocks(data, spent_at, code),
+        format_expense_blocks(data, spent_at),
         edit_markup(expense.id),
     )
 

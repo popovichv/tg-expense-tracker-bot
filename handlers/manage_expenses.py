@@ -26,7 +26,8 @@ from repo.expense import (
     set_description,
     set_spent_at,
 )
-from utils import clock, currency
+from utils import clock
+from utils.money import format_amount
 from utils.amounts import parse_amount
 
 # Six was what a keyboard of one button per expense could hold before it
@@ -127,8 +128,8 @@ def short_date(value: date) -> str:
 
 
 def money(expense) -> str:
-    """An expense's amount in the currency it was recorded in, not today's."""
-    return currency.format_amount(expense.amount, expense.currency)
+    """An expense's amount as it is written in a list."""
+    return format_amount(expense.amount)
 
 
 def span_of(expenses) -> str:
@@ -140,20 +141,8 @@ def span_of(expenses) -> str:
 
 
 def page_total(expenses) -> str:
-    """What the page comes to, or nothing where that would add currencies.
-
-    An expense keeps the currency it was recorded in, so a page holding more
-    than one has no single total to show, and says nothing rather than
-    something wrong.
-    """
-    codes = {expense.currency for expense in expenses}
-
-    if len(codes) != 1:
-        return ""
-
-    return currency.format_amount(
-        sum(expense.amount for expense in expenses), codes.pop()
-    )
+    """What the page comes to."""
+    return format_amount(sum(expense.amount for expense in expenses))
 
 
 def open_button(expense) -> dict:
@@ -346,7 +335,6 @@ def card_blocks(expense, title: str = CARD_TITLE) -> list[dict]:
         category=expense.category_path,
         description=expense.description,
         amount=expense.amount,
-        code=expense.currency,
         spent_at=expense.spent_at,
     )
 
