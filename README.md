@@ -20,25 +20,17 @@ A Telegram bot for tracking personal expenses, built with python-telegram-bot an
 - `/spending`: one month's spending grouped by category, with buttons to step through earlier months
 - `/cancel`: abandon whichever flow is in progress
 
-Expenses can also be logged without a command: send `12.50` or `12.50 coffee` and the bot asks only for the category.
+## Behaviour
 
-## Details
+Send `12.50` or `12.50 coffee` with no command and the bot asks only for the category. Amounts can be written as addition expressions and are stored as exact decimals, so `10 + 5 lunch` is 15 spent on lunch. Whatever is left of the line becomes the description, and the date is today. A line starting with a digit that holds no usable amount is answered with how it should read, and anything else is left alone. Either way the confirmation is the same card, which carries an Edit button for a date other than today or an amount that is one digit out.
 
-Amounts can be written as addition expressions, so `12.50 + 3` works, and they are stored as exact decimals. Categories nest one level deep. Any step of any flow can be cancelled, by button or with `/cancel`.
+Categories nest one level deep, and renaming one keeps the expenses logged against it. Deleting one never deletes an expense: a subcategory's move up to its parent, a top-level category's move wherever you choose, and its subcategories go with it. A category whose expenses have nowhere to go, because it is your only one, cannot be deleted. Every delete is confirmed first with a count of what it affects, and nothing you confirm can be undone.
 
-Renaming a category keeps the expenses logged against it, because an expense points at the category row and not at its name. The starter category sits last in the pickers only because it is called `Other`, so renaming it drops it back into alphabetical order with everything else.
+Expenses are browsed newest first, twelve to a page. Opening one shows the same card, with amount, category, description and date each editable on its own and written the moment you send it.
 
-Deleting a category never deletes an expense. A subcategory's expenses move up to its parent. A top-level category's move wherever you choose, and deleting it takes its subcategories with it. A category that holds expenses with nowhere to move them, because it is your only one, cannot be deleted. Every delete is confirmed first with a count of what it will affect, and nothing you confirm can be undone.
+`/spending` totals one month by category, biggest first. A top-level figure covers the whole branch, and where a parent also holds expenses directly, that part gets a row of its own so the rows add up. The buttons move one month at a time, back as far as the oldest expense and no further forward than the current month.
 
-Expenses are browsed newest first, twelve to a page. Opening one shows a card with its amount, category, description and date, each editable on its own. An edit is written the moment you send it and the card redraws underneath, so you can fix two fields on one expense in a single visit.
-
-A message beginning with a digit is read as an expense rather than ignored. The amount is as much of the start of the line as still reads as one, so `10 + 5 lunch` is 15 spent on lunch and not 10 spent on `+ 5 lunch`; whatever is left over becomes the description, and the date is today. The only thing left to ask is the category, and the confirmation that follows is the same one `/add_expense` ends on, so a date that is not today is two taps away on the Edit button rather than a question asked every time. A line starting with a digit that holds no usable amount is answered with how it should read; anything else is left alone, so ordinary chatter does not raise a keyboard. Sending another line while the keyboard is still up replaces the amount rather than being swallowed.
-
-The card uses the same layout as the confirmation you get after adding an expense, and both come from `handlers/summary.py`, so the two cannot drift apart. The heading says what just happened, which is where an edit reports itself instead of on a line of its own. That confirmation also carries an Edit button onto the card, for when you spot that the amount is one digit out. The button names the expense itself, so it keeps working later and across restarts, with no open conversation needed.
-
-`/spending` totals one month by category. A top-level category's figure is its whole branch: what was logged against it directly plus everything in its subcategories, since that is what a category total means to the person reading it. Where a parent holds both, the direct part gets a row of its own, so the subcategory rows and the figure above them visibly add up. Rows run biggest first, which is the one place the bot departs from the alphabetical order its pickers use, because a report is read to find where the money went.
-
-The report opens on the current month and the buttons move one month at a time, back as far as the oldest expense and forward no further than the current month. The month on display rides in the callback data rather than in conversation state, so the buttons still work after a restart.
+Any step of any flow can be cancelled, by button or with `/cancel`. The Edit and month buttons carry what they need in their callback data, so they keep working across restarts.
 
 ## Setup
 
@@ -50,9 +42,7 @@ The report opens on the current month and the buttons move one month at a time, 
 | `DATABASE_URL` | Full Postgres connection URL                                                 |
 | `TIMEZONE`     | IANA timezone for dates, e.g. `America/Toronto`. Optional, defaults to `UTC` |
 
-Telegram does not tell the bot where you are, so `TIMEZONE` is what "today" means when you log an expense. Leave it unset and the bot uses UTC, which will file an evening expense under tomorrow if you are west of it. A value the bot does not recognise stops it at startup instead of quietly falling back to UTC.
-
-A missing `DATABASE_URL` also stops the bot at startup, with a clear error. Managed Postgres providers usually set it for you, so a deploy needs no database configuration of its own. Both `postgres://` and `postgresql://` URLs work. Locally, put these variables in a `.env` file; on a hosting platform, set them in the project settings.
+Telegram does not tell the bot where you are, so `TIMEZONE` is what "today" means when you log an expense. Left unset it is UTC, which files an evening expense under tomorrow if you are west of it. A value the bot does not recognise stops it at startup.
 
 ### Run locally
 
@@ -77,9 +67,7 @@ alembic revision --autogenerate -m "describe the change"
 alembic upgrade head
 ```
 
-Autogenerate drafts a revision by diffing the models against the live database, and it is not authoritative. It renders a renamed column as a drop plus an add, which destroys that column's data, so review every generated file before applying it. Revisions in `migrations/versions/` are source code and belong in git.
-
-The connection URL reaches Alembic from `DATABASE_URL` through `migrations/env.py`, so `alembic.ini` holds no credentials.
+Autogenerate drafts a revision by diffing the models against the live database and is not authoritative. It renders a renamed column as a drop plus an add, which destroys that column's data, so review every generated file before applying it. Revisions in `migrations/versions/` are source code and belong in git.
 
 On deploy, run `alembic upgrade head` as the platform's pre-deploy command, so the schema is in place before the new container starts.
 
